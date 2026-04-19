@@ -61,6 +61,7 @@ func (a *App) mainNavList() *tview.List {
 			a.SetSelectedPanel(PANEL_SHIPS)
 		}).
 		AddItem("Quit", "", 'q', func() {
+			api.Close()
 			a.ui.Stop()
 		})
 }

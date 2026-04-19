@@ -2,31 +2,29 @@ package api
 
 import (
 	"fmt"
-	"log"
-	"os"
 
-	"github.com/joho/godotenv"
 	"github.com/timkelleher/spaceui/internal/logger"
 	resty "resty.dev/v3"
 )
 
-var client *resty.Client
-var url = "https://api.spacetraders.io/v2/"
-var apiKey = ""
+var (
+	client *resty.Client
+
+	url    = "https://api.spacetraders.io/v2/"
+	apiKey = ""
+)
+
+func init() {
+	client = resty.New()
+}
 
 type ApiResult struct {
 	Err  error
 	Resp *resty.Response
 }
 
-func init() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	apiKey = os.Getenv("SPACE_TRADERS_API_KEY")
-	client = resty.New()
+func SetApiKey(val string) {
+	apiKey = val
 }
 
 func Close() {

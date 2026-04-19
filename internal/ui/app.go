@@ -1,10 +1,13 @@
 package ui
 
 import (
+	"os"
 	"time"
 
 	"github.com/rivo/tview"
+	"github.com/timkelleher/spaceui/internal/api"
 	"github.com/timkelleher/spaceui/internal/logger"
+	"github.com/timkelleher/spaceui/internal/state"
 )
 
 var app App
@@ -16,7 +19,7 @@ type App struct {
 	ui   *tview.Application
 	grid *tview.Grid
 
-	currentNavbar string
+	loc *time.Location
 
 	navbar     tview.Primitive
 	dataPane   *tview.TextView
@@ -28,8 +31,18 @@ func (a *App) PanelData() string {
 	return panels[a.UIState.selectedPanel]()
 }
 
+func (a *App) FormattedTime(t time.Time) string {
+	loc := state.Get("loc").(*time.Location)
+	if loc == nil {
+		return t.Format(time.RFC1123)
+	}
+	return t.In(loc).Format(time.RFC1123)
+}
+
 func NewApp() App {
-	app := App{
+	api.SetApiKey(os.Getenv("SPACE_TRADERS_API_KEY"))
+
+	a := App{
 		UIState: UIState{selectedPanel: PANEL_DASHBOARD},
 
 		ui: tview.NewApplication(),
@@ -37,26 +50,28 @@ func NewApp() App {
 			SetRows(0, 1, 10).
 			SetColumns(30, 0).
 			SetBorders(true),
-
 		statusPane: tview.NewTextView().
 			SetDynamicColors(true).
-			SetTextAlign(tview.AlignCenter).
-			SetText("Loading..."),
+			SetTextAlign(tview.AlignCenter),
 		footerPane: tview.NewTextView().
 			SetDynamicColors(true).
-			SetTextAlign(tview.AlignLeft).
-			SetText(""),
+			SetTextAlign(tview.AlignLeft),
 	}
-	app.dataPane = tview.NewTextView().
+	a.dataPane = tview.NewTextView().
 		SetDynamicColors(true).
 		SetWrap(true).
 		SetChangedFunc(func() {
 			app.ui.Draw()
 		})
+
+	app = a
 	return app
 }
 
 func (a *App) Run() {
+	loc, _ := time.LoadLocation(os.Getenv("TIMEZONE"))
+	state.Set("loc", loc)
+
 	go func() {
 		for range time.Tick(time.Second) {
 			a.ui.QueueUpdateDraw(func() {

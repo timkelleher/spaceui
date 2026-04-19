@@ -39,12 +39,12 @@ func (a *App) contractsContent() string {
 		content += fmt.Sprintf("[blue]Type:[-]\t\t %s\n", contract.Type)
 		content += fmt.Sprintf("[orange]State:[-]\t\t %s\n", contract.State())
 		if !contract.Accepted {
-			content += fmt.Sprintf("[green]Deadline to Accept:[-] %s)\n", contract.DeadlineToAccept.Format(time.RFC1123))
+			content += fmt.Sprintf("[green]Deadline to Accept:[-] %s\n", a.FormattedTime(contract.DeadlineToAccept))
 		}
 		if !contract.Fulfilled {
-			content += fmt.Sprintf("[green]Expiration:[-]\t %s)\n", contract.Expiration.Format(time.RFC1123))
+			content += fmt.Sprintf("[green]Expiration:[-]\t %s\n", a.FormattedTime(contract.Expiration))
 		}
-		content += fmt.Sprintf("[green]Deadline:[-]\t %s\n", contract.Terms.Deadline.Format(time.RFC1123))
+		content += fmt.Sprintf("[green]Deadline:[-]\t %s\n", a.FormattedTime(contract.Terms.Deadline))
 		content += "----- Delivery Terms -----\n"
 		for _, deliver := range contract.Terms.Deliver {
 			content += fmt.Sprintf("[orange]%s[-]\t (%d/%d)\n", deliver.DestinationSymbol, deliver.UnitsFulfilled, deliver.UnitsRequired)

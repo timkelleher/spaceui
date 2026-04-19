@@ -59,7 +59,7 @@ func (ss *ShipState) SelectShip(index int, symbol string) {
 	ss.selectedShipIndex = index
 	ss.selectedShipSymbol = symbol
 
-	logger.Info(fmt.Sprintf("SET STATE current ship [green]%s[-] (%d)", symbol, index))
+	logger.Info(fmt.Sprintf("STATE current ship [green]%s[-] (%d)", symbol, index))
 }
 
 func (ss *ShipState) HasSelectedShip() bool {

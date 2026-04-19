@@ -1,9 +1,11 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/timkelleher/spaceui/internal/api"
+	"github.com/timkelleher/spaceui/internal/logger"
 )
 
 var (
@@ -49,6 +51,11 @@ func Get(id string) any {
 	} else {
 		return val
 	}
+}
+
+func Set(id string, val any) {
+	state[id] = val
+	logger.Info(fmt.Sprintf("STATE %s %s", id, val))
 }
 
 func Agent(force bool) *api.Agent {
