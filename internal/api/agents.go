@@ -1,6 +1,8 @@
 package api
 
-import "net/http"
+import (
+	"net/http"
+)
 
 const GET_AGENT_ENDPOINT = "/my/agent"
 
@@ -17,14 +19,17 @@ type Agent struct {
 	ShipCount       int    `json:"shipCount,omitempty"`
 }
 
-func GetAgent() (*AgentResponse, ApiResult) {
+func GetAgent() (AgentResponse, ApiResult) {
 	var agent AgentResponse
-	res, err := client.R().
+	var errResp ErrorResponse
+	resp, err := client.R().
 		SetHeader("Accept", "application/json").
 		SetAuthToken(apiKey).
 		SetResult(&agent).
+		SetError(&errResp).
 		Get(url + GET_AGENT_ENDPOINT)
 
-	logResponse(http.MethodGet, GET_AGENT_ENDPOINT, res.StatusCode(), err)
-	return &agent, ApiResult{Resp: res, Err: err}
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodGet, GET_AGENT_ENDPOINT, res)
+	return agent, res
 }

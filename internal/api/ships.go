@@ -144,13 +144,17 @@ type ShipMeta struct {
 }
 
 func GetShips() (*ShipsResponse, ApiResult) {
-	var ships ShipsResponse
-	res, err := client.R().
+	var obj ShipsResponse
+	var errResp ErrorResponse
+
+	resp, err := client.R().
 		SetHeader("Accept", "application/json").
 		SetAuthToken(apiKey).
-		SetResult(&ships).
+		SetResult(&obj).
+		SetError(&errResp).
 		Get(url + GET_SHIPS_ENDPOINT)
 
-	logResponse(http.MethodGet, GET_SHIPS_ENDPOINT, res.StatusCode(), err)
-	return &ships, ApiResult{Resp: res, Err: err}
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodGet, GET_SHIPS_ENDPOINT, res)
+	return &obj, res
 }

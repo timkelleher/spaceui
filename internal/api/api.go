@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/timkelleher/spaceui/internal/logger"
 	resty "resty.dev/v3"
@@ -18,11 +20,6 @@ func init() {
 	client = resty.New()
 }
 
-type ApiResult struct {
-	Err  error
-	Resp *resty.Response
-}
-
 func SetApiKey(val string) {
 	apiKey = val
 }
@@ -33,10 +30,37 @@ func Close() {
 	}
 }
 
-func logResponse(method, endpoint string, statusCode int, err error) {
-	if err != nil {
-		logger.Error(fmt.Sprintf("%s %s [yellow]%d[-] [red]%s[-]", method, endpoint, statusCode, err.Error()))
-	} else {
-		logger.Info(fmt.Sprintf("%s %s [yellow]%d[-]", method, endpoint, statusCode))
+func logResponse(method, endpoint string, res ApiResult) {
+	err := res.Err
+	statusCode := res.Resp.StatusCode()
+
+	if res.Resp.IsError() {
+		err = errors.New(res.ErrResp.Error.Message)
+		statusCode = res.ErrResp.Error.Code
 	}
+
+	switch res.Resp.StatusCode() {
+	case http.StatusOK:
+		logger.Info(fmt.Sprintf("%s %s [blue]%d[-]", method, endpoint, statusCode))
+	default:
+		logger.Warn(fmt.Sprintf("%s %s [yellow]%d[-] [red]%s[-]", method, endpoint, statusCode, err.Error()))
+	}
+}
+
+type ErrorResponse struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			Expected string `json:"expected"`
+			Actual   string `json:"actual"`
+		} `json:"data"`
+		RequestID string `json:"requestId"`
+	} `json:"error"`
+}
+
+type ListMetaResponse struct {
+	Total int `json:"total,omitempty"`
+	Page  int `json:"page,omitempty"`
+	Limit int `json:"limit,omitempty"`
 }

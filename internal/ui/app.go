@@ -10,8 +10,6 @@ import (
 	"github.com/timkelleher/spaceui/internal/state"
 )
 
-var app App
-
 type App struct {
 	ShipState
 	UIState
@@ -21,14 +19,25 @@ type App struct {
 
 	loc *time.Location
 
-	navbar     tview.Primitive
-	dataPane   *tview.TextView
-	statusPane tview.Primitive
-	footerPane *tview.TextView
+	navbar        tview.Primitive
+	dataPane      *tview.TextView
+	statusBarPane *tview.TextView
+	footerPane    *tview.TextView
 }
 
-func (a *App) PanelData() string {
-	return panels[a.UIState.selectedPanel]()
+func (a *App) PanelContent() string {
+	switch a.UIState.SelectedPanel() {
+	case PANEL_AGENT:
+		return a.agentContent()
+	case PANEL_CONTRACTS:
+		return a.contractsContent()
+	case PANEL_SHIPS:
+		return a.shipsContent()
+	case PANEL_SYSTEMS:
+		return a.systemsContent()
+	default:
+		return a.dashboardContent()
+	}
 }
 
 func (a *App) FormattedTime(t time.Time) string {
@@ -42,7 +51,7 @@ func (a *App) FormattedTime(t time.Time) string {
 func NewApp() App {
 	api.SetApiKey(os.Getenv("SPACE_TRADERS_API_KEY"))
 
-	a := App{
+	app := App{
 		UIState: UIState{selectedPanel: PANEL_DASHBOARD},
 
 		ui: tview.NewApplication(),
@@ -50,21 +59,21 @@ func NewApp() App {
 			SetRows(0, 1, 10).
 			SetColumns(30, 0).
 			SetBorders(true),
-		statusPane: tview.NewTextView().
+		dataPane: tview.NewTextView().
+			SetDynamicColors(true).
+			SetWrap(true).
+			SetScrollable(true),
+		statusBarPane: tview.NewTextView().
 			SetDynamicColors(true).
 			SetTextAlign(tview.AlignCenter),
 		footerPane: tview.NewTextView().
 			SetDynamicColors(true).
 			SetTextAlign(tview.AlignLeft),
 	}
-	a.dataPane = tview.NewTextView().
-		SetDynamicColors(true).
-		SetWrap(true).
-		SetChangedFunc(func() {
-			app.ui.Draw()
-		})
 
-	app = a
+	app.dataPane.SetChangedFunc(func() {
+		app.ui.Draw()
+	})
 	return app
 }
 
@@ -86,6 +95,11 @@ func (a *App) Run() {
 }
 
 func (a *App) draw(forceNavUpdate bool) {
+	// select current ship if we don't have one yet
+	if !a.ShipState.HasSelectedShip() {
+		a.ShipState.SelectFromCache()
+	}
+
 	if forceNavUpdate || a.UIState.NavbarChanged() {
 		a.grid.RemoveItem(a.navbar)
 		a.UpdateNavbar()
@@ -94,19 +108,14 @@ func (a *App) draw(forceNavUpdate bool) {
 	}
 
 	a.grid.RemoveItem(a.dataPane)
-	a.dataPane.SetText(a.PanelData())
+	a.dataPane.SetText(a.PanelContent())
 	a.grid.AddItem(a.dataPane, 0, 1, 1, 1, 0, 0, false)
 
-	a.grid.RemoveItem(a.statusPane)
-	a.statusPane = a.statusBarContent()
-	a.grid.AddItem(a.statusPane, 1, 0, 1, 2, 0, 0, false)
+	a.grid.RemoveItem(a.statusBarPane)
+	a.statusBarPane.SetText(a.statusBarContent())
+	a.grid.AddItem(a.statusBarPane, 1, 0, 1, 2, 0, 0, false)
 
 	a.footerPane.SetText(logger.Logs())
 	a.grid.RemoveItem(a.footerPane)
 	a.grid.AddItem(a.footerPane, 2, 0, 1, 2, 0, 0, false)
-
-	// select current ship if we don't have one yet
-	if !a.ShipState.HasSelectedShip() {
-		a.ShipState.SelectFromCache()
-	}
 }

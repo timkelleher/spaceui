@@ -12,18 +12,13 @@ const (
 	PANEL_AGENT     = "agent"
 	PANEL_CONTRACTS = "contracts"
 	PANEL_SHIPS     = "ships"
+	PANEL_SYSTEMS   = "systems"
 
 	NAVBAR_MAIN      = "main"
 	NAVBAR_CONTRACTS = "contracts"
 	NAVBAR_SHIPS     = "ships"
+	NAVBAR_SYSTEMS   = "systems"
 )
-
-var panels map[string]func() string = map[string]func() string{
-	"dashboard": app.dashboardContent,
-	"agent":     app.agentContent,
-	"contracts": app.contractsContent,
-	"ships":     app.shipsContent,
-}
 
 type UIState struct {
 	selectedNavbar string
@@ -34,12 +29,9 @@ func (us *UIState) SelectedPanel() string {
 	return us.selectedPanel
 }
 
+// TODO: safety or fallback?
 func (us *UIState) SetSelectedPanel(id string) {
-	if _, ok := panels[id]; ok {
-		us.selectedPanel = id
-	} else {
-		us.selectedPanel = PANEL_DASHBOARD
-	}
+	us.selectedPanel = id
 }
 
 type ShipState struct {
@@ -59,7 +51,7 @@ func (ss *ShipState) SelectShip(index int, symbol string) {
 	ss.selectedShipIndex = index
 	ss.selectedShipSymbol = symbol
 
-	logger.Info(fmt.Sprintf("STATE current ship [green]%s[-] (%d)", symbol, index))
+	logger.Info(fmt.Sprintf("STATE selected ship [green]%s[-] (%d)", symbol, index))
 }
 
 func (ss *ShipState) HasSelectedShip() bool {

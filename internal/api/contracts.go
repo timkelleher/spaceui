@@ -13,8 +13,8 @@ const (
 )
 
 type ContractsResponse struct {
-	Contracts []Contract   `json:"data,omitempty"`
-	Meta      ContractMeta `json:"meta,omitempty"`
+	Contracts []Contract       `json:"data,omitempty"`
+	Meta      ListMetaResponse `json:"meta"`
 }
 
 type Contract struct {
@@ -50,12 +50,6 @@ func (c Contract) State() string {
 	}
 }
 
-type ContractMeta struct {
-	Total int `json:"total,omitempty"`
-	Page  int `json:"page,omitempty"`
-	Limit int `json:"limit,omitempty"`
-}
-
 type Terms struct {
 	Deadline time.Time `json:"deadline,omitempty"`
 	Payment  Payment   `json:"payment,omitempty"`
@@ -75,15 +69,19 @@ type Deliver struct {
 }
 
 func GetContracts() (*ContractsResponse, ApiResult) {
-	var res ContractsResponse
+	var obj ContractsResponse
+	var errResp ErrorResponse
+
 	resp, err := client.R().
 		SetHeader("Accept", "application/json").
 		SetAuthToken(apiKey).
-		SetResult(&res).
+		SetResult(&obj).
+		SetError(&errResp).
 		Get(url + GET_CONTRACTS_ENDPOINT)
 
-	logResponse(http.MethodGet, GET_CONTRACTS_ENDPOINT, resp.StatusCode(), err)
-	return &res, ApiResult{Resp: resp, Err: err}
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodGet, GET_CONTRACTS_ENDPOINT, res)
+	return &obj, res
 }
 
 type NegotiateContractResponse struct {
@@ -94,16 +92,19 @@ type NegotiateContractResponse struct {
 
 func NegotiateContract(shipSymbol string) (*NegotiateContractResponse, ApiResult) {
 	endpoint := fmt.Sprintf(NEGOTIATE_CONTRACT_ENDPOINT, shipSymbol)
+	var obj NegotiateContractResponse
+	var errResp ErrorResponse
 
-	var res NegotiateContractResponse
 	resp, err := client.R().
 		SetHeader("Accept", "application/json").
 		SetAuthToken(apiKey).
-		SetResult(&res).
+		SetResult(&obj).
+		SetError(&errResp).
 		Post(url + endpoint)
 
-	logResponse(http.MethodPost, endpoint, resp.StatusCode(), err)
-	return &res, ApiResult{Resp: resp, Err: err}
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, endpoint, res)
+	return &obj, res
 }
 
 type AcceptContractResponse struct {
@@ -116,13 +117,17 @@ type AcceptContractResponse struct {
 func AcceptContract(id string) (*AcceptContractResponse, ApiResult) {
 	endpoint := fmt.Sprintf(ACCEPT_CONTRACT_ENDPOINT, id)
 
-	var res AcceptContractResponse
+	var obj AcceptContractResponse
+	var errResp ErrorResponse
+
 	resp, err := client.R().
 		SetHeader("Accept", "application/json").
 		SetAuthToken(apiKey).
-		SetResult(&res).
+		SetResult(&obj).
+		SetError(&errResp).
 		Post(url + endpoint)
 
-	logResponse(http.MethodPost, endpoint, resp.StatusCode(), err)
-	return &res, ApiResult{Resp: resp, Err: err}
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, endpoint, res)
+	return &obj, res
 }

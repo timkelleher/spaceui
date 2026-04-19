@@ -60,6 +60,9 @@ func (a *App) mainNavList() *tview.List {
 		AddItem("Ships", "", 's', func() {
 			a.SetSelectedPanel(PANEL_SHIPS)
 		}).
+		AddItem("Systems", "", 'y', func() {
+			a.SetSelectedPanel(PANEL_SYSTEMS)
+		}).
 		AddItem("Quit", "", 'q', func() {
 			api.Close()
 			a.ui.Stop()
@@ -115,14 +118,14 @@ func (a *App) shipsList() *tview.List {
 	if a.ShipState.SelectedShipIndex() != 0 && len(ships) > 1 {
 		menu.AddItem("Load Previous Ship", "", 'p', func() {
 			index := a.ShipState.SelectedShipIndex() - 1
-			app.ShipState.SelectShip(index, ships[index].Symbol)
+			a.ShipState.SelectShip(index, ships[index].Symbol)
 			a.draw(true)
 		})
 	}
 	if a.ShipState.SelectedShipIndex() < len(ships)-1 {
 		menu.AddItem("Load Next Ship", "", 'n', func() {
 			index := a.ShipState.SelectedShipIndex() + 1
-			app.ShipState.SelectShip(index, ships[index].Symbol)
+			a.ShipState.SelectShip(index, ships[index].Symbol)
 			a.draw(true)
 		})
 	}
