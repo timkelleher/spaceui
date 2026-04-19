@@ -18,10 +18,6 @@ type Agent struct {
 }
 
 func GetAgent() (*AgentResponse, ApiResult) {
-	if client == nil {
-		Init()
-	}
-
 	var agent AgentResponse
 	res, err := client.R().
 		SetHeader("Accept", "application/json").

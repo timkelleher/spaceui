@@ -144,10 +144,6 @@ type ShipMeta struct {
 }
 
 func GetShips() (*ShipsResponse, ApiResult) {
-	if client == nil {
-		Init()
-	}
-
 	var ships ShipsResponse
 	res, err := client.R().
 		SetHeader("Accept", "application/json").

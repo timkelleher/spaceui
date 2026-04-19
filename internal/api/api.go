@@ -2,8 +2,10 @@ package api
 
 import (
 	"fmt"
+	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/timkelleher/spaceui/internal/logger"
 	resty "resty.dev/v3"
 )
@@ -17,7 +19,12 @@ type ApiResult struct {
 	Resp *resty.Response
 }
 
-func Init() {
+func init() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	apiKey = os.Getenv("SPACE_TRADERS_API_KEY")
 	client = resty.New()
 }

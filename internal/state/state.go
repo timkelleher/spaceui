@@ -1,54 +1,49 @@
 package state
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/timkelleher/spaceui/internal/api"
 )
 
-var state map[string]string
-var ships []api.Ship
+var (
+	state     map[string]any
+	agent     *api.Agent
+	contracts []api.Contract
+	ships     []api.Ship
+)
 
 func Init() {
-	state = make(map[string]string)
-	state["globalError"] = ""
+	state = make(map[string]any)
+	state["global_error"] = ""
 
 	go refreshAgentData()
+	go refreshContractsData()
 	go refreshShipData()
 }
 
 func refreshAgentData() {
 	for {
-		agent, resp := api.GetAgent()
-		if resp.Err != nil {
-			state["globalError"] = resp.Err.Error()
-			break
-		}
-		state["agent.account_id"] = agent.Agent.AccountID
-		state["agent.credits"] = strconv.Itoa(agent.Agent.Credits)
-		state["agent.ship_count"] = strconv.Itoa(agent.Agent.ShipCount)
-		state["agent.starting_faction"] = agent.Agent.StartingFaction
-		state["agent.symbol"] = agent.Agent.Symbol
+		Agent(true)
+		time.Sleep(20 * time.Second)
+	}
+}
 
-		time.Sleep(30 * time.Second)
+func refreshContractsData() {
+	for {
+		Contracts(true)
+		time.Sleep(45 * time.Second)
 	}
 }
 
 func refreshShipData() {
 	for {
-		res, resp := api.GetShips()
-		if resp.Err != nil {
-			state["globalError"] = resp.Err.Error()
-			break
-		}
-
-		ships = res.Ships
+		Ships(true)
 		time.Sleep(30 * time.Second)
 	}
 }
 
-func Get(id string) string {
+func Get(id string) any {
 	if val, ok := state[id]; !ok {
 		return "not found"
 	} else {
@@ -56,6 +51,41 @@ func Get(id string) string {
 	}
 }
 
-func Ships() []api.Ship {
+func Agent(force bool) *api.Agent {
+	if _, ok := state["last_fetched.agent"]; force || !ok {
+		res, resp := api.GetAgent()
+		if resp.Err != nil {
+			state["global_error"] = resp.Err.Error()
+			return nil
+		}
+		state["last_fetched.agent"] = time.Now()
+		agent = &res.Agent
+	}
+	return agent
+}
+
+func Contracts(force bool) []api.Contract {
+	if _, ok := state["last_fetched.contracts"]; force || !ok {
+		res, resp := api.GetContracts()
+		if resp.Err != nil {
+			state["global_error"] = resp.Err.Error()
+			return nil
+		}
+		state["last_fetched.contracts"] = time.Now()
+		contracts = res.Contracts
+	}
+	return contracts
+}
+
+func Ships(force bool) []api.Ship {
+	if _, ok := state["last_fetched.ships"]; force || !ok {
+		res, resp := api.GetShips()
+		if resp.Err != nil {
+			state["global_error"] = resp.Err.Error()
+			return nil
+		}
+		state["last_fetched.ships"] = time.Now()
+		ships = res.Ships
+	}
 	return ships
 }
