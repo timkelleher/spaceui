@@ -32,7 +32,10 @@ func Close() {
 
 func logResponse(method, endpoint string, res ApiResult) {
 	err := res.Err
-	statusCode := res.Resp.StatusCode()
+	statusCode := 0
+	if res.Resp != nil {
+		statusCode = res.Resp.StatusCode()
+	}
 
 	if res.Resp.IsError() {
 		err = errors.New(res.ErrResp.Error.Message)

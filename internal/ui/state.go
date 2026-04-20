@@ -3,26 +3,31 @@ package ui
 import (
 	"fmt"
 
+	"github.com/timkelleher/spaceui/internal/api"
 	"github.com/timkelleher/spaceui/internal/logger"
 	"github.com/timkelleher/spaceui/internal/state"
 )
 
 const (
-	PANEL_DASHBOARD = "dashboard"
-	PANEL_AGENT     = "agent"
-	PANEL_CONTRACTS = "contracts"
-	PANEL_SHIPS     = "ships"
-	PANEL_SYSTEMS   = "systems"
+	PANEL_DASHBOARD      = "dashboard"
+	PANEL_AGENT          = "agent"
+	PANEL_CONTRACTS      = "contracts"
+	PANEL_SHIPS_LIST     = "ships_list"
+	PANEL_SHIP_DETAIL    = "ship_detail"
+	PANEL_SYSTEMS        = "systems"
+	PANEL_WAYPOINTS_LIST = "waypoints_list"
 
-	NAVBAR_MAIN      = "main"
-	NAVBAR_CONTRACTS = "contracts"
-	NAVBAR_SHIPS     = "ships"
-	NAVBAR_SYSTEMS   = "systems"
+	MENU_MAIN           = "main"
+	MENU_CONTRACTS      = "contracts"
+	MENU_SHIPS_LIST     = "ships_list"
+	MENU_SHIP_DETAIL    = "ship_detail"
+	MENU_SYSTEMS        = "systems"
+	MENU_WAYPOINTS_LIST = "waypoints_list"
 )
 
 type UIState struct {
-	selectedNavbar string
-	selectedPanel  string
+	selectedMenu  string
+	selectedPanel string
 }
 
 func (us *UIState) SelectedPanel() string {
@@ -34,33 +39,77 @@ func (us *UIState) SetSelectedPanel(id string) {
 	us.selectedPanel = id
 }
 
-type ShipState struct {
-	selectedShipIndex  int
-	selectedShipSymbol string
+type GameState struct {
+	selectedShipIndex int
+
+	activeShipIndex  int
+	activeShipSymbol string
+
+	waypointFilterType string
+	waypointFilterName string
 }
 
-func (ss *ShipState) SelectedShipIndex() int {
-	return ss.selectedShipIndex
+func NewGameState() GameState {
+	return GameState{
+		selectedShipIndex: -1,
+		activeShipIndex:   -1,
+	}
 }
 
-func (ss *ShipState) SelectedShipSymbol() string {
-	return ss.selectedShipSymbol
+func (gs *GameState) SelectShip(index int) {
+	gs.selectedShipIndex = index
 }
 
-func (ss *ShipState) SelectShip(index int, symbol string) {
-	ss.selectedShipIndex = index
-	ss.selectedShipSymbol = symbol
-
-	logger.Info(fmt.Sprintf("STATE selected ship [green]%s[-] (%d)", symbol, index))
+func (gs *GameState) DeselectShip() {
+	gs.selectedShipIndex = -1
 }
 
-func (ss *ShipState) HasSelectedShip() bool {
-	return ss.selectedShipSymbol != ""
+func (gs *GameState) SelectedShipIndex() int {
+	return gs.selectedShipIndex
 }
 
-func (ss *ShipState) SelectFromCache() {
+func (gs *GameState) HasActiveShip() bool {
+	return gs.activeShipSymbol != ""
+}
+
+func (gs *GameState) ActiveShipSymbol() string {
+	return gs.activeShipSymbol
+}
+
+func (gs *GameState) ActiveShip() *api.Ship {
+	if !gs.HasActiveShip() {
+		return nil
+	}
+	ships := state.Ships(false)
+	for _, ship := range ships {
+		if ship.Symbol == gs.ActiveShipSymbol() {
+			return &ship
+		}
+	}
+	return nil
+}
+
+func (gs *GameState) ActivateShip(index int, symbol string) {
+	gs.selectedShipIndex = index
+	gs.activeShipSymbol = symbol
+
+	state.Reset("waypoints")
+	logger.Info(fmt.Sprintf("STATE active ship [green]%s[-] (%d)", symbol, index))
+}
+
+func (gs *GameState) ActivateFromCache() {
 	ships := state.Ships(false)
 	if len(ships) > 0 {
-		ss.SelectShip(0, ships[0].Symbol)
+		gs.ActivateShip(0, ships[0].Symbol)
 	}
+}
+
+func (gs *GameState) DeactivateShip() {
+	gs.selectedShipIndex = -1
+	gs.activeShipSymbol = ""
+}
+
+func (gs *GameState) ApplyWaypointFilter(waypointType, name string) {
+	gs.waypointFilterType = waypointType
+	gs.waypointFilterName = name
 }

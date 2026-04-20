@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/timkelleher/spaceui/internal/api"
 	"github.com/timkelleher/spaceui/internal/state"
 )
 
@@ -15,9 +16,10 @@ func (a *App) dashboardContent() string {
 	content := "----- Best Space Traders App Ever: Dashboard -----\n"
 	content += fmt.Sprintf("[green]Current Time:[-]\t %s\n", a.FormattedTime(time.Now()))
 	content += fmt.Sprintf("[red]Agent Name:[-]\t\t %s\n", agent.Symbol)
-	if a.ShipState.HasSelectedShip() {
-		content += fmt.Sprintf("[orange]Selected Ship:[-]\t %s\n", a.ShipState.SelectedShipSymbol())
+	if a.GameState.HasActiveShip() {
+		content += fmt.Sprintf("[orange]Selected Ship:[-]\t %s\n", a.GameState.ActiveShipSymbol())
 	}
+
 	return content
 }
 
@@ -60,19 +62,34 @@ func (a *App) contractsContent() string {
 	return content
 }
 
-func (a *App) shipsContent() string {
+func (a *App) shipsListContent() string {
 	ships := state.Ships(false)
 
 	content := fmt.Sprintf("[yellow]Number of ships owned:[-] %d\n", len(ships))
 	if len(ships) == 0 {
 		return content
 	}
+	if a.GameState.HasActiveShip() {
+		content += fmt.Sprintf("[yellow]Currently active ship:[-] [red]%s[-]", a.GameState.ActiveShipSymbol())
+	}
 
-	ship := ships[a.ShipState.SelectedShipIndex()]
-
-	content += fmt.Sprintf("Current Ship selected: [yellow]%s[-]\n", ships[a.ShipState.SelectedShipIndex()].Symbol)
 	content += "----------\n"
-	content += fmt.Sprintf("[red]Ship %s[-]\n", ship.Symbol)
+
+	for i, ship := range ships {
+		content += fmt.Sprintf("%d) [red]%s[-] [gray]%s[-]\n", i+1, ship.Symbol, ship.Registration.Role)
+	}
+	return content
+}
+
+func (a *App) shipDetailContent() string {
+	ships := state.Ships(false)
+
+	if len(ships) == 0 {
+		return ""
+	}
+
+	ship := ships[a.GameState.SelectedShipIndex()]
+	content := fmt.Sprintf("[red]Ship %s[-]\n", ship.Symbol)
 	content += fmt.Sprintf("[orange]Frame:[-] %s | [orange]Reactor:[-] %s | [orange]Engine:[-] %s\n", ship.Frame.Name, ship.Reactor.Name, ship.Engine.Name)
 	content += "----- Registration -----\n"
 	content += fmt.Sprintf("[blue]Name:[-] %s | [blue]Faction Symbol:[-] %s | [blue]Role:[-] %s\n", ship.Registration.Name, ship.Registration.FactionSymbol, ship.Registration.Role)
@@ -83,7 +100,7 @@ func (a *App) shipsContent() string {
 	content += fmt.Sprintf("[green]Capacity:[-] %d | [green]Units:[-] %d\n", ship.Cargo.Capacity, ship.Cargo.Units)
 	content += "----- Fuel -----\n"
 	content += fmt.Sprintf("[green]Capacity:[-] %d | [green]Current:[-] %d | [green]Consumed:[-] %d\n", ship.Fuel.Capacity, ship.Fuel.Current, ship.Fuel.Consumed.Amount)
-	if a.ShipState.SelectedShipIndex() != len(ships)-1 {
+	if a.GameState.SelectedShipIndex() != len(ships)-1 {
 		content += "\n"
 	}
 
@@ -116,10 +133,64 @@ func (a *App) systemsContent() string {
 	return content
 }
 
+func (a *App) waypointsListContent() string {
+	ship := a.GameState.ActiveShip()
+	if ship == nil {
+		return "[red]Error: no active ship![-]"
+	}
+
+	if !state.Loading("waypoints") && !state.LastUpdated("waypoints").IsZero() {
+		var content strings.Builder
+		waypoints := state.Waypoints(ship.Nav.SystemSymbol)
+
+		content.WriteString(fmt.Sprintf("[yellow]Number of waypoints in %s system:[-] %d\n", ship.Nav.SystemSymbol, len(waypoints)))
+
+		if a.GameState.waypointFilterName != "" {
+			content.WriteString(fmt.Sprintf("[purple]Applying %s filter[-]\n", a.GameState.waypointFilterName))
+
+			var filtered []api.Waypoint
+			for _, waypoint := range waypoints {
+				if a.GameState.waypointFilterType == "type" && waypoint.Type == a.GameState.waypointFilterName {
+					filtered = append(filtered, waypoint)
+				} else if a.GameState.waypointFilterType == "trait" {
+					filtered = waypointsWithTrait(ship, a.GameState.waypointFilterName)
+				}
+			}
+
+			for _, waypoint := range filtered {
+				content.WriteString(fmt.Sprintf("[orange]%s[-] [blue]%s[-]\n", waypoint.Symbol, waypoint.Type))
+				var traits []string
+				for _, trait := range waypoint.Traits {
+					traits = append(traits, trait.Name)
+				}
+				if len(traits) > 0 {
+					content.WriteString(fmt.Sprintf("\t%s\n", strings.Join(traits, ", ")))
+				}
+			}
+			return content.String()
+		}
+
+		waypointsByType := waypointsByType(ship)
+		for _, waypointCount := range waypointsByType {
+			content.WriteString(fmt.Sprintf("[blue]%s[-] %d[-]\n", waypointCount.Name, waypointCount.Count))
+		}
+
+		//content += fmt.Sprintf("[orange]%s[-] | [blue]%s[-] | [yellow]%d,%d[-]\n", waypoint.Symbol, waypoint.Type, waypoint.X, waypoint.Y)
+		return content.String()
+	}
+
+	if state.Loading("waypoints") {
+		return loadingContent(state.WaypointsDataStatus())
+	}
+
+	go state.Waypoints(ship.Nav.SystemSymbol)
+	return loadingContent(state.WaypointsDataStatus())
+}
+
 func (a *App) statusBarContent() string {
-	currentShip := "[orange]no_ship_selected[-]"
-	if a.ShipState.HasSelectedShip() {
-		currentShip = fmt.Sprintf("[orange]%s[-]", a.ShipState.SelectedShipSymbol())
+	currentShip := ""
+	if a.GameState.HasActiveShip() {
+		currentShip = fmt.Sprintf("[orange]%s[-]", a.GameState.ActiveShipSymbol())
 	}
 
 	now := fmt.Sprintf("%s", time.Now().Format(time.RFC1123))
@@ -128,9 +199,13 @@ func (a *App) statusBarContent() string {
 	credits := fmt.Sprintf("[green]%d[-]", agent.Credits)
 	content := now + "\t" + agentSymbol + "\t" + currentShip + "\t" + credits
 
-	err := state.Get("global_error")
+	err := state.GlobalError()
 	if err != "" {
 		content = fmt.Sprintf("[red]%s[-]", err)
 	}
 	return content
+}
+
+func loadingContent(num int) string {
+	return fmt.Sprintf("Loading %d objects...\n", num)
 }

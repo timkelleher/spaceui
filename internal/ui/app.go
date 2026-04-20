@@ -6,12 +6,13 @@ import (
 
 	"github.com/rivo/tview"
 	"github.com/timkelleher/spaceui/internal/api"
+	"github.com/timkelleher/spaceui/internal/events"
 	"github.com/timkelleher/spaceui/internal/logger"
 	"github.com/timkelleher/spaceui/internal/state"
 )
 
 type App struct {
-	ShipState
+	GameState
 	UIState
 
 	ui   *tview.Application
@@ -31,17 +32,21 @@ func (a *App) PanelContent() string {
 		return a.agentContent()
 	case PANEL_CONTRACTS:
 		return a.contractsContent()
-	case PANEL_SHIPS:
-		return a.shipsContent()
+	case PANEL_SHIPS_LIST:
+		return a.shipsListContent()
+	case PANEL_SHIP_DETAIL:
+		return a.shipDetailContent()
 	case PANEL_SYSTEMS:
 		return a.systemsContent()
+	case PANEL_WAYPOINTS_LIST:
+		return a.waypointsListContent()
 	default:
 		return a.dashboardContent()
 	}
 }
 
 func (a *App) FormattedTime(t time.Time) string {
-	loc := state.Get("loc").(*time.Location)
+	loc := state.Loc()
 	if loc == nil {
 		return t.Format(time.RFC1123)
 	}
@@ -52,7 +57,8 @@ func NewApp() App {
 	api.SetApiKey(os.Getenv("SPACE_TRADERS_API_KEY"))
 
 	app := App{
-		UIState: UIState{selectedPanel: PANEL_DASHBOARD},
+		UIState:   UIState{selectedPanel: PANEL_DASHBOARD},
+		GameState: NewGameState(),
 
 		ui: tview.NewApplication(),
 		grid: tview.NewGrid().
@@ -79,7 +85,7 @@ func NewApp() App {
 
 func (a *App) Run() {
 	loc, _ := time.LoadLocation(os.Getenv("TIMEZONE"))
-	state.Set("loc", loc)
+	state.SetLoc(loc)
 
 	go func() {
 		for range time.Tick(time.Second) {
@@ -95,14 +101,16 @@ func (a *App) Run() {
 }
 
 func (a *App) draw(forceNavUpdate bool) {
-	// select current ship if we don't have one yet
-	if !a.ShipState.HasSelectedShip() {
-		a.ShipState.SelectFromCache()
+	ev := events.GetEvents()
+	for _, event := range ev {
+		if event == events.EVENT_LOAD_WAYPOINTS_COMPLETE && a.UIState.selectedMenu == "waypoints_list" {
+			forceNavUpdate = true
+		}
 	}
 
-	if forceNavUpdate || a.UIState.NavbarChanged() {
+	if forceNavUpdate || a.UIState.MenuChanged() {
 		a.grid.RemoveItem(a.navbar)
-		a.UpdateNavbar()
+		a.UpdateMenu()
 		a.grid.AddItem(a.navbar, 0, 0, 1, 1, 0, 0, false)
 		a.ui.SetFocus(a.navbar)
 	}
