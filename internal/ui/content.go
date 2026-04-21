@@ -14,23 +14,28 @@ func (a *App) dashboardContent() string {
 
 	content := "----- Best Space Traders App Ever: Dashboard -----\n"
 	content += fmt.Sprintf("[green]Current Time:[-]\t %s\n", a.FormattedTime(time.Now()))
-	content += fmt.Sprintf("[red]Agent Name:[-]\t\t %s\n", agent.Symbol)
-	if a.GameState.HasActiveShip() {
-		content += fmt.Sprintf("[orange]Selected Ship:[-]\t %s\n", a.GameState.ActiveShipSymbol())
-	}
-
-	return content
-}
-
-func (a *App) agentContent() string {
-	agent := state.Agent(false)
-
-	content := "[yellow]Current Agent Information[-]\n" +
-		fmt.Sprintf("[blue]Account ID:[-]\t\t%s\n", agent.AccountID) +
+	content += "\n"
+	content += "----- Current Agent Information -----\n" +
 		fmt.Sprintf("[blue]Symbol:[-]\t\t\t%s\n", agent.Symbol) +
 		fmt.Sprintf("[blue]Ship Count:[-]\t\t%d\n", agent.ShipCount) +
 		fmt.Sprintf("[blue]Headquarters:[-]\t%s\n", agent.Headquarters) +
 		fmt.Sprintf("[blue]Credits:[-]\t\t%d\n", agent.Credits)
+	content += "\n"
+	if a.GameState.HasActiveShip() {
+		ship := a.GameState.ActiveShip()
+		content += "----- Current Ship Information -----\n"
+		content += fmt.Sprintf("[orange]Active Ship:[-]\t %s\n", ship.Symbol)
+		content += fmt.Sprintf("[orange]Status:[-]\t\t\t %s\n", ship.Nav.Status)
+		content += fmt.Sprintf("[orange]Location:[-]\t %s\n", ship.Nav.WaypointSymbol)
+		content += "\n"
+	}
+	if a.GameState.HasActiveWaypoint() {
+		waypoint := a.GameState.ActiveWaypoint()
+		content += "----- Current Waypoint Information -----\n"
+		content += fmt.Sprintf("[red]Selected Waypoint:[-]\t %s\n", waypoint.Symbol)
+		content += "\n"
+	}
+
 	return content
 }
 
@@ -39,6 +44,13 @@ func (a *App) contractsContent() string {
 
 	content := fmt.Sprintf("[yellow]Number of contracts:[-] %d\n", len(contracts))
 	content += "----------\n"
+
+	if !a.GameState.HasActiveShip() {
+		content += "\n" +
+			"\t[yellow]Please activate a ship in order to negotiate a new contract.[-]\n" +
+			"\n"
+	}
+
 	for i, contract := range contracts {
 		content += fmt.Sprintf("[red]ID:[-]\t\t\t %s[-]\n", contract.ID)
 		content += fmt.Sprintf("[blue]Type:[-]\t\t %s\n", contract.Type)
@@ -69,13 +81,14 @@ func (a *App) shipsListContent() string {
 		return content
 	}
 	if a.GameState.HasActiveShip() {
-		content += fmt.Sprintf("[yellow]Currently active ship:[-] [red]%s[-]", a.GameState.ActiveShipSymbol())
+		content += fmt.Sprintf("[yellow]Currently active ship:[-] [red]%s[-]\n", a.GameState.ActiveShipSymbol())
 	}
 
 	content += "----------\n"
 
 	for i, ship := range ships {
-		content += fmt.Sprintf("%d) [red]%s[-] [gray]%s[-]\n", i+1, ship.Symbol, ship.Registration.Role)
+		content += fmt.Sprintf("%d) [red]%s[-] [blue]%s[-] [gold]%s[-] %s\n",
+			i+1, ship.Symbol, ship.Registration.Role, ship.Nav.WaypointSymbol, ship.Nav.Status)
 	}
 	return content
 }
@@ -145,11 +158,14 @@ func (a *App) waypointsListContent() string {
 		content.WriteString(fmt.Sprintf("[yellow]Number of waypoints in %s system:[-] %d\n", ship.Nav.SystemSymbol, len(waypoints)))
 
 		if a.GameState.waypointFilterName != "" {
-			content.WriteString(fmt.Sprintf("[purple]Applying %s filter[-]\n", a.GameState.waypointFilterName))
-
 			filtered := a.filteredWaypoints()
+			content.WriteString(fmt.Sprintf("[purple]Applying `%s` filter[-]: %d\n", a.GameState.waypointFilterName, len(filtered)))
+
 			for _, waypoint := range filtered {
-				content.WriteString(fmt.Sprintf("[orange]%s[-] [blue]%s[-]\n", waypoint.Symbol, waypoint.Type))
+				shipsAtWaypoint := a.GameState.ShipsAtWaypoint(waypoint.Symbol)
+				atWaypoint := strings.Join(shipsAtWaypoint, ", ")
+
+				content.WriteString(fmt.Sprintf("[orange]%s[-] [blue]%s[-] [orange]%s[-]\n", waypoint.Symbol, waypoint.Type, atWaypoint))
 				traits := waypoint.AllTraits()
 				if len(traits) > 0 {
 					content.WriteString(fmt.Sprintf("\t%s\n", strings.Join(traits, ", ")))
@@ -181,12 +197,46 @@ func (a *App) waypointDetailContent() string {
 	}
 
 	waypoint := a.GameState.ActiveWaypoint()
-	content := fmt.Sprintf("[yellow]Waypoint:[-] %s [blue]%s[-]\n", ship.Nav.SystemSymbol, waypoint.Type)
+	content := fmt.Sprintf("Waypoint: [yellow]%s[-] [blue]%s[-]\n", ship.Nav.SystemSymbol, waypoint.Type)
 	if len(waypoint.Traits) > 0 {
 		content += fmt.Sprintf("\t[blue]Traits:[-] %s\n", strings.Join(waypoint.AllTraits(), ", "))
 	}
 	content += fmt.Sprintf("\t[orange]Faction:[-] %s\n", waypoint.Faction.Symbol)
 
+	// Ships at this waypoint
+	ships := state.Ships(false)
+	content += "\n" + fmt.Sprintf("Ship(s) at waypoint [yellow]%s[-]:\n", waypoint.Symbol)
+	for _, ship := range ships {
+		if ship.Nav.WaypointSymbol == waypoint.Symbol {
+			content += fmt.Sprintf("\t[orange]%s[-]\n", ship.Symbol)
+		}
+	}
+	if len(ships) == 0 {
+		content += "\tNone\n"
+	}
+
+	return content
+}
+
+func (a *App) waypointAvailableShipsContent() string {
+	waypoint := a.GameState.ActiveWaypoint()
+	if waypoint == nil {
+		return "[red]Error: no active waypoint![-]"
+	}
+
+	shipyard := state.AvailableShips(waypoint.SystemSymbol, waypoint.Symbol)
+	content := fmt.Sprintf("Available ship types for [yellow]%s[-] waypoint: [orange]%d[-]\n", waypoint.Symbol, len(shipyard.ShipTypes))
+	for _, ship := range shipyard.ShipTypes {
+		content += fmt.Sprintf("\t- [blue]%s[-]\n", ship.Type)
+	}
+	content += "\n"
+	if len(shipyard.Ships) == 0 {
+
+	}
+	for _, ship := range shipyard.Ships {
+		content += fmt.Sprintf("[orange]%s[-] | [blue]%s[-] | [green]%s[-] supply | Cost [orange]%d[-] \n", ship.Name, ship.Type, ship.Supply, ship.PurchasePrice)
+		content += fmt.Sprintf("%s\n", ship.Description)
+	}
 	return content
 }
 

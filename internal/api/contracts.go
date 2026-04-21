@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/timkelleher/spaceui/internal/logger"
 )
 
 const (
@@ -92,6 +94,7 @@ type NegotiateContractResponse struct {
 
 func NegotiateContract(shipSymbol string) (*NegotiateContractResponse, ApiResult) {
 	endpoint := fmt.Sprintf(NEGOTIATE_CONTRACT_ENDPOINT, shipSymbol)
+
 	var obj NegotiateContractResponse
 	var errResp ErrorResponse
 
@@ -102,6 +105,7 @@ func NegotiateContract(shipSymbol string) (*NegotiateContractResponse, ApiResult
 		SetError(&errResp).
 		Post(url + endpoint)
 
+	logger.Info(fmt.Sprintf("%d", resp.StatusCode()))
 	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
 	logResponse(http.MethodPost, endpoint, res)
 	return &obj, res

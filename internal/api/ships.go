@@ -1,11 +1,15 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 )
 
-const GET_SHIPS_ENDPOINT = "/my/ships"
+const (
+	GET_SHIPS_ENDPOINT  = "/my/ships"
+	ORBIT_SHIP_ENDPOINT = "/my/ships/%s/orbit"
+)
 
 type ShipsResponse struct {
 	Ships    []Ship   `json:"data,omitempty"`
@@ -157,4 +161,42 @@ func GetShips() (*ShipsResponse, ApiResult) {
 	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
 	logResponse(http.MethodGet, GET_SHIPS_ENDPOINT, res)
 	return &obj, res
+}
+
+func BuyShip(shipType, waypointSymbol string) ApiResult {
+	payloadStruct := struct {
+		ShipType       string `json:"shipType"`
+		WaypointSymbol string `json:"waypointSymbol"`
+	}{
+		ShipType:       shipType,
+		WaypointSymbol: waypointSymbol,
+	}
+
+	var errResp ErrorResponse
+
+	resp, err := client.R().
+		SetHeader("Accept", "application/json").
+		SetAuthToken(apiKey).
+		SetError(&errResp).
+		SetBody(payloadStruct).
+		Post(url + GET_SHIPS_ENDPOINT)
+
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, GET_SHIPS_ENDPOINT, res)
+	return res
+}
+
+func OrbitShip(symbol string) ApiResult {
+	endpoint := fmt.Sprintf(ORBIT_SHIP_ENDPOINT, symbol)
+	var errResp ErrorResponse
+
+	resp, err := client.R().
+		SetHeader("Accept", "application/json").
+		SetAuthToken(apiKey).
+		SetError(&errResp).
+		Post(url + endpoint)
+
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, endpoint, res)
+	return res
 }

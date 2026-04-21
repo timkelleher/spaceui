@@ -28,8 +28,6 @@ type App struct {
 
 func (a *App) PanelContent() string {
 	switch a.UIState.SelectedPanel() {
-	case PANEL_AGENT:
-		return a.agentContent()
 	case PANEL_CONTRACTS:
 		return a.contractsContent()
 	case PANEL_SHIPS_LIST:
@@ -42,6 +40,8 @@ func (a *App) PanelContent() string {
 		return a.waypointsListContent()
 	case PANEL_WAYPOINT_DETAIL:
 		return a.waypointDetailContent()
+	case PANEL_WAYPOINT_AVAILABLE_SHIPS:
+		return a.waypointAvailableShipsContent()
 	default:
 		return a.dashboardContent()
 	}
@@ -65,7 +65,7 @@ func NewApp() App {
 		ui: tview.NewApplication(),
 		grid: tview.NewGrid().
 			SetRows(0, 1, 10).
-			SetColumns(30, 0).
+			SetColumns(35, 0).
 			SetBorders(true),
 		dataPane: tview.NewTextView().
 			SetDynamicColors(true).

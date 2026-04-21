@@ -16,12 +16,12 @@ var (
 	loc         *time.Location
 	globalError string
 
-	agent          api.Agent
-	contracts      []api.Contract
-	ships          []api.Ship
-	systems        []api.System
-	waypoints      []api.Waypoint
-	availableShips api.AvailableShips
+	agent     api.Agent
+	contracts []api.Contract
+	ships     []api.Ship
+	systems   []api.System
+	waypoints []api.Waypoint
+	shipyard  api.Shipyard
 )
 
 func Init() {
@@ -198,7 +198,7 @@ func Reset(id string) {
 	}
 }
 
-func AvailableShips(system, waypoint string) api.AvailableShips {
+func AvailableShips(system, waypoint string) api.Shipyard {
 	if check := lastUpdated["available_ships"]; check.IsZero() {
 		obj, _ := api.GetAvailableShips(system, waypoint)
 
@@ -206,9 +206,9 @@ func AvailableShips(system, waypoint string) api.AvailableShips {
 			return waypoints[i].Type < waypoints[j].Type
 		})
 
-		availableShips = obj.AvailableShips
+		shipyard = obj.Shipyard
 		lastUpdated["available_ships"] = time.Now()
 	}
 
-	return availableShips
+	return shipyard
 }

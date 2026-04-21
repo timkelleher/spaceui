@@ -35,18 +35,22 @@ func logResponse(method, endpoint string, res ApiResult) {
 	statusCode := 0
 	if res.Resp != nil {
 		statusCode = res.Resp.StatusCode()
+
+		if res.Resp.IsError() {
+			err = errors.New(res.ErrResp.Error.Message)
+			statusCode = res.ErrResp.Error.Code
+		}
 	}
 
-	if res.Resp.IsError() {
-		err = errors.New(res.ErrResp.Error.Message)
-		statusCode = res.ErrResp.Error.Code
-	}
-
-	switch res.Resp.StatusCode() {
-	case http.StatusOK:
-		logger.Info(fmt.Sprintf("%s %s [blue]%d[-]", method, endpoint, statusCode))
+	switch statusCode {
+	case http.StatusOK, http.StatusCreated, http.StatusAccepted:
+		logger.Info(fmt.Sprintf("%s %s [green]%d[-]", method, endpoint, statusCode))
 	default:
-		logger.Warn(fmt.Sprintf("%s %s [yellow]%d[-] [red]%s[-]", method, endpoint, statusCode, err.Error()))
+		errMsg := ""
+		if err != nil {
+			errMsg = err.Error()
+		}
+		logger.Warn(fmt.Sprintf("%s %s [red]%d[-] [red]%s[-]", method, endpoint, statusCode, errMsg))
 	}
 }
 

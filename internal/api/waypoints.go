@@ -81,15 +81,91 @@ func GetWaypoints(system string, page int) (*WaypointsResponse, ApiResult) {
 }
 
 type WaypointAvailableShipsResponse struct {
-	AvailableShips `json:"data"`
+	Shipyard `json:"data"`
 }
 
-type AvailableShips struct {
+type Shipyard struct {
 	Symbol    string `json:"symbol"`
 	ShipTypes []struct {
 		Type string `json:"type"`
 	} `json:"shipTypes"`
-	ModificationsFee int `json:"modificationsFee"`
+	ModificationsFee int             `json:"modificationsFee"`
+	Transactions     []interface{}   `json:"transactions"`
+	Ships            []AvailableShip `json:"ships"`
+}
+
+type AvailableShip struct {
+	Type          string `json:"type"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	Supply        string `json:"supply"`
+	PurchasePrice int    `json:"purchasePrice"`
+	Frame         struct {
+		Symbol         string `json:"symbol"`
+		Name           string `json:"name"`
+		Condition      int    `json:"condition"`
+		Integrity      int    `json:"integrity"`
+		Description    string `json:"description"`
+		ModuleSlots    int    `json:"moduleSlots"`
+		MountingPoints int    `json:"mountingPoints"`
+		FuelCapacity   int    `json:"fuelCapacity"`
+		Requirements   struct {
+			Power int `json:"power"`
+			Crew  int `json:"crew"`
+		} `json:"requirements"`
+		Quality int `json:"quality"`
+	} `json:"frame"`
+	Reactor struct {
+		Symbol       string `json:"symbol"`
+		Name         string `json:"name"`
+		Condition    int    `json:"condition"`
+		Integrity    int    `json:"integrity"`
+		Description  string `json:"description"`
+		PowerOutput  int    `json:"powerOutput"`
+		Requirements struct {
+			Crew int `json:"crew"`
+		} `json:"requirements"`
+		Quality int `json:"quality"`
+	} `json:"reactor"`
+	Engine struct {
+		Symbol       string `json:"symbol"`
+		Name         string `json:"name"`
+		Condition    int    `json:"condition"`
+		Integrity    int    `json:"integrity"`
+		Description  string `json:"description"`
+		Speed        int    `json:"speed"`
+		Requirements struct {
+			Power int `json:"power"`
+			Crew  int `json:"crew"`
+		} `json:"requirements"`
+		Quality int `json:"quality"`
+	} `json:"engine"`
+	Modules []struct {
+		Symbol       string `json:"symbol"`
+		Name         string `json:"name"`
+		Description  string `json:"description"`
+		Requirements struct {
+			Power int `json:"power"`
+			Crew  int `json:"crew"`
+			Slots int `json:"slots"`
+		} `json:"requirements"`
+		Capacity int `json:"capacity,omitempty"`
+	} `json:"modules"`
+	Mounts []struct {
+		Symbol       string `json:"symbol"`
+		Name         string `json:"name"`
+		Description  string `json:"description"`
+		Requirements struct {
+			Power int `json:"power"`
+			Crew  int `json:"crew"`
+		} `json:"requirements"`
+		Strength int `json:"strength"`
+	} `json:"mounts"`
+	Crew struct {
+		Required int `json:"required"`
+		Capacity int `json:"capacity"`
+	} `json:"crew"`
+	Activity string `json:"activity"`
 }
 
 func GetAvailableShips(system, waypoint string) (*WaypointAvailableShipsResponse, ApiResult) {

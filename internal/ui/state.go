@@ -10,7 +10,6 @@ import (
 
 const (
 	PANEL_DASHBOARD                = "dashboard"
-	PANEL_AGENT                    = "agent"
 	PANEL_CONTRACTS                = "contracts"
 	PANEL_SHIPS_LIST               = "ships_list"
 	PANEL_SHIP_DETAIL              = "ship_detail"
@@ -125,9 +124,31 @@ func (gs *GameState) DeactivateShip() {
 	gs.activeShipSymbol = ""
 }
 
+func (gs *GameState) ShipsAtWaypoint(symbol string) []string {
+	var atWaypoint []string
+
+	ships := state.Ships(false)
+	for _, ship := range ships {
+		if ship.Nav.WaypointSymbol == symbol {
+			atWaypoint = append(atWaypoint, ship.Symbol)
+		}
+	}
+	return atWaypoint
+}
+
 /////////////////////////////
 // Waypoints
 /////////////////////////////
+
+func (gs *GameState) HasActiveWaypoint() bool {
+	if state.LastUpdated("waypoints").IsZero() {
+		return false
+	}
+	if !gs.HasActiveShip() {
+		return false
+	}
+	return gs.ActiveWaypoint() != nil
+}
 
 func (gs *GameState) ActiveWaypoint() *api.Waypoint {
 	ship := gs.ActiveShip()
