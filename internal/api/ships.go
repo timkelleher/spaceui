@@ -9,6 +9,7 @@ import (
 const (
 	GET_SHIPS_ENDPOINT  = "/my/ships"
 	ORBIT_SHIP_ENDPOINT = "/my/ships/%s/orbit"
+	DOCK_SHIP_ENDPOINT  = "/my/ships/%s/dock"
 )
 
 type ShipsResponse struct {
@@ -188,6 +189,21 @@ func BuyShip(shipType, waypointSymbol string) ApiResult {
 
 func OrbitShip(symbol string) ApiResult {
 	endpoint := fmt.Sprintf(ORBIT_SHIP_ENDPOINT, symbol)
+	var errResp ErrorResponse
+
+	resp, err := client.R().
+		SetHeader("Accept", "application/json").
+		SetAuthToken(apiKey).
+		SetError(&errResp).
+		Post(url + endpoint)
+
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, endpoint, res)
+	return res
+}
+
+func DockShip(symbol string) ApiResult {
+	endpoint := fmt.Sprintf(DOCK_SHIP_ENDPOINT, symbol)
 	var errResp ErrorResponse
 
 	resp, err := client.R().

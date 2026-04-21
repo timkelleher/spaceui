@@ -10,12 +10,6 @@ import (
 )
 
 var (
-	loading     map[string]bool
-	lastUpdated map[string]time.Time
-
-	loc         *time.Location
-	globalError string
-
 	agent     api.Agent
 	contracts []api.Contract
 	ships     []api.Ship
@@ -31,7 +25,7 @@ func Init() {
 	go refreshAgentData()
 	go refreshContractsData()
 	go refreshShipData()
-	go refreshSystemsData()
+	//go refreshSystemsData()
 }
 
 func refreshAgentData() {
@@ -62,34 +56,6 @@ func refreshSystemsData() {
 	}
 }
 
-func GlobalError() string {
-	return globalError
-}
-
-func Loc() *time.Location {
-	return loc
-}
-
-func SetLoc(l *time.Location) {
-	loc = l
-}
-
-func Loading(id string) bool {
-	loading, ok := loading[id]
-	if !ok {
-		return false
-	}
-	return loading
-}
-
-func LastUpdated(id string) time.Time {
-	lastUpdated, ok := lastUpdated[id]
-	if !ok {
-		return time.Time{}
-	}
-	return lastUpdated
-}
-
 func Agent(force bool) api.Agent {
 	if _, ok := lastUpdated["agent"]; force || !ok {
 		obj, _ := api.GetAgent()
@@ -110,9 +76,11 @@ func Contracts(force bool) []api.Contract {
 
 func Ships(force bool) []api.Ship {
 	if _, ok := lastUpdated["ships"]; force || !ok {
+		loading["ships"] = true
 		obj, _ := api.GetShips()
 		lastUpdated["ships"] = time.Now()
 		ships = obj.Ships
+		loading["ships"] = false
 	}
 	return ships
 }

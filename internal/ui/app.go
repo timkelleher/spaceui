@@ -2,6 +2,7 @@ package ui
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	"github.com/rivo/tview"
@@ -11,84 +12,98 @@ import (
 	"github.com/timkelleher/spaceui/internal/state"
 )
 
+var app *App
+
 type App struct {
-	GameState
-	UIState
+	mu sync.Mutex
 
 	ui   *tview.Application
 	grid *tview.Grid
 
-	loc *time.Location
+	pages    map[string]Page
+	homePage Page
 
-	navbar        tview.Primitive
-	dataPane      *tview.TextView
-	statusBarPane *tview.TextView
-	footerPane    *tview.TextView
+	currentMenuID string
+	uiMenu        *tview.List
+	uiPage        *tview.TextView
+	uiStatusBar   *tview.TextView
+	uiFooter      *tview.TextView
 }
 
-func (a *App) PanelContent() string {
-	switch a.UIState.SelectedPanel() {
-	case PANEL_CONTRACTS:
-		return a.contractsContent()
-	case PANEL_SHIPS_LIST:
-		return a.shipsListContent()
-	case PANEL_SHIP_DETAIL:
-		return a.shipDetailContent()
-	case PANEL_SYSTEMS:
-		return a.systemsContent()
-	case PANEL_WAYPOINTS_LIST:
-		return a.waypointsListContent()
-	case PANEL_WAYPOINT_DETAIL:
-		return a.waypointDetailContent()
-	case PANEL_WAYPOINT_AVAILABLE_SHIPS:
-		return a.waypointAvailableShipsContent()
-	default:
-		return a.dashboardContent()
+func (a *App) registerPages() {
+	a.pages = make(map[string]Page)
+
+	a.registerPage(DashboardPage{}, true)
+
+	a.registerPage(ContractsPage{}, false)
+
+	a.registerPage(ShipsListPage{}, false)
+	a.registerPage(ShipDetailPage{}, false)
+
+	a.registerPage(WaypointsListPage{}, false)
+	a.registerPage(WaypointDetailPage{}, false)
+	a.registerPage(WaypointShipyardPage{}, false)
+}
+
+func (a *App) registerPage(p Page, isHome bool) {
+	a.pages[p.ID()] = p
+	if isHome {
+		a.homePage = p
 	}
 }
 
-func (a *App) FormattedTime(t time.Time) string {
-	loc := state.Loc()
-	if loc == nil {
-		return t.Format(time.RFC1123)
+func (a *App) getPage(id string) Page {
+	for _, page := range a.pages {
+		if page.ID() == id {
+			return page
+		}
 	}
-	return t.In(loc).Format(time.RFC1123)
+	return nil
 }
 
-func NewApp() App {
+func NewApp() *App {
+	if app != nil {
+		return app
+	}
+
 	api.SetApiKey(os.Getenv("SPACE_TRADERS_API_KEY"))
 
-	app := App{
-		UIState:   UIState{selectedPanel: PANEL_DASHBOARD},
-		GameState: NewGameState(),
+	app = &App{
+		mu: sync.Mutex{},
 
 		ui: tview.NewApplication(),
 		grid: tview.NewGrid().
 			SetRows(0, 1, 10).
 			SetColumns(35, 0).
 			SetBorders(true),
-		dataPane: tview.NewTextView().
+		uiPage: tview.NewTextView().
 			SetDynamicColors(true).
 			SetWrap(true).
 			SetScrollable(true),
-		statusBarPane: tview.NewTextView().
+		uiStatusBar: tview.NewTextView().
 			SetDynamicColors(true).
 			SetTextAlign(tview.AlignCenter),
-		footerPane: tview.NewTextView().
+		uiFooter: tview.NewTextView().
 			SetDynamicColors(true).
 			SetTextAlign(tview.AlignLeft),
 	}
 
-	app.dataPane.SetChangedFunc(func() {
-		app.ui.Draw()
-	})
+	app.registerPages()
+	state.SetActivePage(app.homePage.ID())
+	app.uiPage.
+		SetText(app.homePage.Content()).
+		SetChangedFunc(func() {
+			app.ui.Draw()
+		})
+
 	return app
 }
 
 func (a *App) Run() {
-	loc, _ := time.LoadLocation(os.Getenv("TIMEZONE"))
-	state.SetLoc(loc)
+	//loc, _ := time.LoadLocation(os.Getenv("TIMEZONE"))
+	//state.SetLoc(loc)
 
+	// Redraw every second
 	go func() {
 		for range time.Tick(time.Second) {
 			a.ui.QueueUpdateDraw(func() {
@@ -102,30 +117,87 @@ func (a *App) Run() {
 	}
 }
 
-func (a *App) draw(forceNavUpdate bool) {
+func (a *App) getCurrentMenuID() string {
+	return a.currentMenuID
+}
+
+func (a *App) setCurrentMenuID(id string) {
+	a.currentMenuID = id
+}
+
+func (a *App) draw(forceMenuUpdate bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	ev := events.GetEvents()
 	for _, event := range ev {
-		if event == events.EVENT_LOAD_WAYPOINTS_COMPLETE && a.UIState.selectedMenu == "waypoints_list" {
-			forceNavUpdate = true
+		if event == events.EVENT_LOAD_WAYPOINTS_COMPLETE && a.getCurrentMenuID() == MENU_WAYPOINTS_LIST {
+			forceMenuUpdate = true
 		}
 	}
 
-	if forceNavUpdate || a.UIState.MenuChanged() {
-		a.grid.RemoveItem(a.navbar)
-		a.UpdateMenu()
-		a.grid.AddItem(a.navbar, 0, 0, 1, 1, 0, 0, false)
-		a.ui.SetFocus(a.navbar)
+	currentPage := a.getPage(state.ActivePage())
+	if currentPage == nil {
+		currentPage = a.getPage(PAGE_DASHBOARD)
+		state.SetActivePage(currentPage.ID())
 	}
 
-	a.grid.RemoveItem(a.dataPane)
-	a.dataPane.SetText(a.PanelContent())
-	a.grid.AddItem(a.dataPane, 0, 1, 1, 1, 0, 0, false)
+	// Redraw the menu if forced or if the menu has changed since last draw
+	if forceMenuUpdate || currentPage.Menu().ID() != a.getCurrentMenuID() {
+		a.grid.RemoveItem(a.uiMenu)
+		a.uiMenu = currentPage.Menu().Menu()
+		a.setCurrentMenuID(currentPage.Menu().ID())
+		a.grid.AddItem(a.uiMenu, 0, 0, 1, 1, 0, 0, false)
+		a.ui.SetFocus(a.uiMenu)
+	}
 
-	a.grid.RemoveItem(a.statusBarPane)
-	a.statusBarPane.SetText(a.statusBarContent())
-	a.grid.AddItem(a.statusBarPane, 1, 0, 1, 2, 0, 0, false)
+	a.grid.RemoveItem(a.uiPage)
+	a.uiPage.SetText(currentPage.Content())
+	a.grid.AddItem(a.uiPage, 0, 1, 1, 1, 0, 0, false)
 
-	a.footerPane.SetText(logger.Logs())
-	a.grid.RemoveItem(a.footerPane)
-	a.grid.AddItem(a.footerPane, 2, 0, 1, 2, 0, 0, false)
+	a.grid.RemoveItem(a.uiStatusBar)
+	a.uiStatusBar.SetText(statusBarContent())
+	a.grid.AddItem(a.uiStatusBar, 1, 0, 1, 2, 0, 0, false)
+
+	a.uiFooter.SetText(logger.Logs())
+	a.grid.RemoveItem(a.uiFooter)
+	a.grid.AddItem(a.uiFooter, 2, 0, 1, 2, 0, 0, false)
+}
+
+const MENU_MAIN = "main"
+
+type MainMenu struct {
+}
+
+func (mm MainMenu) ID() string {
+	return MENU_MAIN
+}
+
+func (mm MainMenu) Menu() *tview.List {
+	menu := tview.NewList().
+		AddItem("Dashboard", "", 'd', func() {
+			state.SetActivePage(PAGE_DASHBOARD)
+		}).
+		AddItem("Contracts", "", 'c', func() {
+			state.SetActivePage(PAGE_CONTRACTS)
+		}).
+		AddItem("Ships", "", 's', func() {
+			state.SetActivePage(PAGE_SHIPS_LIST)
+		})
+		//AddItem("Systems", "", 'y', func() {
+		//	state.SetActivePage(PAGE_SYSTEMS)
+		//})
+
+	if state.HasActiveShip() {
+		menu.AddItem("Waypoints", "", 'w', func() {
+			state.SetActivePage(PAGE_WAYPOINTS_LIST)
+		})
+	}
+
+	menu.AddItem("Quit", "", 'q', func() {
+		api.Close()
+		app.ui.Stop()
+	})
+
+	return menu
 }
