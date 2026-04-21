@@ -44,3 +44,33 @@ func waypointsWithTrait(ship *api.Ship, desired string) []api.Waypoint {
 	}
 	return filtered
 }
+
+func (a *App) findWaypoint(symbol string) *api.Waypoint {
+	ship := a.GameState.ActiveShip()
+	if ship == nil {
+		return nil
+	}
+
+	waypoints := state.Waypoints(ship.Nav.SystemSymbol)
+	for _, waypoint := range waypoints {
+		if waypoint.Symbol == symbol {
+			return &waypoint
+		}
+	}
+	return nil
+}
+
+func (a *App) filteredWaypoints() []api.Waypoint {
+	ship := a.ActiveShip()
+	waypoints := state.Waypoints(ship.Nav.SystemSymbol)
+
+	var filtered []api.Waypoint
+	for _, waypoint := range waypoints {
+		if a.GameState.waypointFilterType == "type" && waypoint.Type == a.GameState.waypointFilterName {
+			filtered = append(filtered, waypoint)
+		} else if a.GameState.waypointFilterType == "trait" {
+			filtered = waypointsWithTrait(ship, a.GameState.waypointFilterName)
+		}
+	}
+	return filtered
+}

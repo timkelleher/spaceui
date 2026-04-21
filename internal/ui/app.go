@@ -40,6 +40,8 @@ func (a *App) PanelContent() string {
 		return a.systemsContent()
 	case PANEL_WAYPOINTS_LIST:
 		return a.waypointsListContent()
+	case PANEL_WAYPOINT_DETAIL:
+		return a.waypointDetailContent()
 	default:
 		return a.dashboardContent()
 	}

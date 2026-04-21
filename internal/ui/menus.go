@@ -31,6 +31,10 @@ func (us *UIState) DeterminedMenu() string {
 		return MENU_SHIP_DETAIL
 	case PANEL_WAYPOINTS_LIST:
 		return MENU_WAYPOINTS_LIST
+	case PANEL_WAYPOINT_DETAIL:
+		return MENU_WAYPOINT_DETAIL
+	case PANEL_WAYPOINT_AVAILABLE_SHIPS:
+		return MENU_WAYPOINT_AVAILABLE_SHIPS
 	default:
 		return MENU_MAIN
 	}
@@ -46,6 +50,10 @@ func (a *App) Menu() tview.Primitive {
 		return a.shipDetailMenu()
 	case PANEL_WAYPOINTS_LIST:
 		return a.waypointsListMenu()
+	case PANEL_WAYPOINT_DETAIL:
+		return a.waypointDetailMenu()
+	case PANEL_WAYPOINT_AVAILABLE_SHIPS:
+		return a.waypointAvailableShips()
 	default:
 		return a.mainMenu()
 	}
@@ -143,7 +151,7 @@ func (a *App) shipsListMenu() *tview.List {
 		if activeShipSymbol == ship.Symbol {
 			desc = "active"
 		}
-		menu.AddItem(ship.Symbol, desc, ' ', func() {
+		menu.AddItem(ship.Symbol, desc, 0, func() {
 			a.GameState.SelectShip(i)
 			a.UIState.SetSelectedPanel(PANEL_SHIP_DETAIL)
 			a.draw(true)
@@ -184,10 +192,13 @@ func (a *App) shipDetailMenu() *tview.List {
 func (a *App) waypointsListMenu() *tview.List {
 	menu := tview.NewList().
 		AddItem("Back", "", 'b', func() {
+			a.SetSelectedPanel(PANEL_DASHBOARD)
+			if a.GameState.waypointFilterName != "" {
+				a.SetSelectedPanel(PANEL_WAYPOINTS_LIST)
+			}
+
 			a.GameState.waypointFilterType = ""
 			a.GameState.waypointFilterName = ""
-
-			a.SetSelectedPanel(PANEL_DASHBOARD)
 			a.draw(true)
 		})
 
@@ -197,22 +208,31 @@ func (a *App) waypointsListMenu() *tview.List {
 	}
 
 	if !state.Loading("waypoints") && !state.LastUpdated("waypoints").IsZero() {
-		menu.AddItem("- Waypoints Filters -", "", ' ', nil)
-
-		// Remove Filter
-		if a.GameState.waypointFilterType != "" {
-			menu.AddItem("Remove Filter", "", 'r', func() {
-				a.GameState.waypointFilterType = ""
-				a.GameState.waypointFilterName = ""
+		waypoints := a.filteredWaypoints()
+		for _, waypoint := range waypoints {
+			menu.AddItem(waypoint.Symbol, "", 0, func() {
+				a.SetSelectedPanel(PANEL_WAYPOINT_DETAIL)
+				a.GameState.selectedWaypointSymbol = waypoint.Symbol
 				a.draw(true)
 			})
 		}
+
+		menu.AddItem("- Waypoints Filters -", "", 0, nil)
+
+		// Remove Filter
+		//if a.GameState.waypointFilterType != "" {
+		//	menu.AddItem("Remove Filter", "", 'r', func() {
+		//		a.GameState.waypointFilterType = ""
+		//		a.GameState.waypointFilterName = ""
+		//		a.draw(true)
+		//	})
+		//}
 
 		// By Trait
 		desiredTraits := []string{"Shipyard"}
 		for _, desired := range desiredTraits {
 			waypointsByType := waypointsWithTrait(ship, desired)
-			menu.AddItem(desired, fmt.Sprintf("%d", len(waypointsByType)), ' ', func() {
+			menu.AddItem(desired, fmt.Sprintf("%d", len(waypointsByType)), 0, func() {
 				a.GameState.waypointFilterType = "trait"
 				a.GameState.waypointFilterName = desired
 				a.draw(true)
@@ -222,12 +242,48 @@ func (a *App) waypointsListMenu() *tview.List {
 		// By Type
 		waypointsByType := waypointsByType(ship)
 		for _, waypointCount := range waypointsByType {
-			menu.AddItem(waypointCount.Name, fmt.Sprintf("%d", waypointCount.Count), ' ', func() {
+			menu.AddItem(waypointCount.Name, fmt.Sprintf("%d", waypointCount.Count), 0, func() {
 				a.GameState.waypointFilterType = "type"
 				a.GameState.waypointFilterName = waypointCount.Name
 				a.draw(true)
 			})
 		}
+	}
+
+	return menu
+}
+
+func (a *App) waypointDetailMenu() *tview.List {
+	menu := tview.NewList().
+		AddItem("Back", "", 'b', func() {
+			a.SetSelectedPanel(PANEL_WAYPOINTS_LIST)
+			a.draw(true)
+		})
+
+	waypoint := a.GameState.ActiveWaypoint()
+	if waypoint.IsShipyard() {
+		menu.AddItem("View Ships at Shipyard", "", 'v', func() {
+			a.SetSelectedPanel(PANEL_WAYPOINT_AVAILABLE_SHIPS)
+			a.draw(true)
+		})
+	}
+
+	return menu
+}
+
+func (a *App) waypointAvailableShips() *tview.List {
+	menu := tview.NewList().
+		AddItem("Back", "", 'b', func() {
+			a.SetSelectedPanel(PANEL_WAYPOINT_DETAIL)
+			a.draw(true)
+		})
+
+	waypoint := a.GameState.ActiveWaypoint()
+	availableShips := state.AvailableShips(waypoint.SystemSymbol, waypoint.Symbol)
+	for _, ship := range availableShips.ShipTypes {
+		menu.AddItem(fmt.Sprintf("Buy %s", ship.Type), "", 'b', func() {
+			// buy ship
+		})
 	}
 
 	return menu

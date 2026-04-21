@@ -16,11 +16,12 @@ var (
 	loc         *time.Location
 	globalError string
 
-	agent     api.Agent
-	contracts []api.Contract
-	ships     []api.Ship
-	systems   []api.System
-	waypoints []api.Waypoint
+	agent          api.Agent
+	contracts      []api.Contract
+	ships          []api.Ship
+	systems        []api.System
+	waypoints      []api.Waypoint
+	availableShips api.AvailableShips
 )
 
 func Init() {
@@ -195,4 +196,19 @@ func Reset(id string) {
 	case "":
 		waypoints = make([]api.Waypoint, 0)
 	}
+}
+
+func AvailableShips(system, waypoint string) api.AvailableShips {
+	if check := lastUpdated["available_ships"]; check.IsZero() {
+		obj, _ := api.GetAvailableShips(system, waypoint)
+
+		sort.Slice(waypoints, func(i, j int) bool {
+			return waypoints[i].Type < waypoints[j].Type
+		})
+
+		availableShips = obj.AvailableShips
+		lastUpdated["available_ships"] = time.Now()
+	}
+
+	return availableShips
 }

@@ -9,21 +9,29 @@ import (
 )
 
 const (
-	PANEL_DASHBOARD      = "dashboard"
-	PANEL_AGENT          = "agent"
-	PANEL_CONTRACTS      = "contracts"
-	PANEL_SHIPS_LIST     = "ships_list"
-	PANEL_SHIP_DETAIL    = "ship_detail"
-	PANEL_SYSTEMS        = "systems"
-	PANEL_WAYPOINTS_LIST = "waypoints_list"
+	PANEL_DASHBOARD                = "dashboard"
+	PANEL_AGENT                    = "agent"
+	PANEL_CONTRACTS                = "contracts"
+	PANEL_SHIPS_LIST               = "ships_list"
+	PANEL_SHIP_DETAIL              = "ship_detail"
+	PANEL_SYSTEMS                  = "systems"
+	PANEL_WAYPOINTS_LIST           = "waypoints_list"
+	PANEL_WAYPOINT_DETAIL          = "waypoint_detail"
+	PANEL_WAYPOINT_AVAILABLE_SHIPS = "waypoint_available_ships"
 
-	MENU_MAIN           = "main"
-	MENU_CONTRACTS      = "contracts"
-	MENU_SHIPS_LIST     = "ships_list"
-	MENU_SHIP_DETAIL    = "ship_detail"
-	MENU_SYSTEMS        = "systems"
-	MENU_WAYPOINTS_LIST = "waypoints_list"
+	MENU_MAIN                     = "main"
+	MENU_CONTRACTS                = "contracts"
+	MENU_SHIPS_LIST               = "ships_list"
+	MENU_SHIP_DETAIL              = "ship_detail"
+	MENU_SYSTEMS                  = "systems"
+	MENU_WAYPOINTS_LIST           = "waypoints_list"
+	MENU_WAYPOINT_DETAIL          = "waypoint_detail"
+	MENU_WAYPOINT_AVAILABLE_SHIPS = "waypoint_available_ships"
 )
+
+/////////////////////////////
+// UIState
+/////////////////////////////
 
 type UIState struct {
 	selectedMenu  string
@@ -39,14 +47,18 @@ func (us *UIState) SetSelectedPanel(id string) {
 	us.selectedPanel = id
 }
 
+/////////////////////////////
+// GameState
+/////////////////////////////
+
 type GameState struct {
 	selectedShipIndex int
+	activeShipIndex   int
+	activeShipSymbol  string
 
-	activeShipIndex  int
-	activeShipSymbol string
-
-	waypointFilterType string
-	waypointFilterName string
+	selectedWaypointSymbol string
+	waypointFilterType     string
+	waypointFilterName     string
 }
 
 func NewGameState() GameState {
@@ -55,6 +67,10 @@ func NewGameState() GameState {
 		activeShipIndex:   -1,
 	}
 }
+
+/////////////////////////////
+// Ships
+/////////////////////////////
 
 func (gs *GameState) SelectShip(index int) {
 	gs.selectedShipIndex = index
@@ -107,6 +123,20 @@ func (gs *GameState) ActivateFromCache() {
 func (gs *GameState) DeactivateShip() {
 	gs.selectedShipIndex = -1
 	gs.activeShipSymbol = ""
+}
+
+/////////////////////////////
+// Waypoints
+/////////////////////////////
+
+func (gs *GameState) ActiveWaypoint() *api.Waypoint {
+	ship := gs.ActiveShip()
+	for _, waypoint := range state.Waypoints(ship.Nav.SystemSymbol) {
+		if waypoint.Symbol == gs.selectedWaypointSymbol {
+			return &waypoint
+		}
+	}
+	return nil
 }
 
 func (gs *GameState) ApplyWaypointFilter(waypointType, name string) {

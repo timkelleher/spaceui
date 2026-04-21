@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/timkelleher/spaceui/internal/api"
 	"github.com/timkelleher/spaceui/internal/state"
 )
 
@@ -148,21 +147,10 @@ func (a *App) waypointsListContent() string {
 		if a.GameState.waypointFilterName != "" {
 			content.WriteString(fmt.Sprintf("[purple]Applying %s filter[-]\n", a.GameState.waypointFilterName))
 
-			var filtered []api.Waypoint
-			for _, waypoint := range waypoints {
-				if a.GameState.waypointFilterType == "type" && waypoint.Type == a.GameState.waypointFilterName {
-					filtered = append(filtered, waypoint)
-				} else if a.GameState.waypointFilterType == "trait" {
-					filtered = waypointsWithTrait(ship, a.GameState.waypointFilterName)
-				}
-			}
-
+			filtered := a.filteredWaypoints()
 			for _, waypoint := range filtered {
 				content.WriteString(fmt.Sprintf("[orange]%s[-] [blue]%s[-]\n", waypoint.Symbol, waypoint.Type))
-				var traits []string
-				for _, trait := range waypoint.Traits {
-					traits = append(traits, trait.Name)
-				}
+				traits := waypoint.AllTraits()
 				if len(traits) > 0 {
 					content.WriteString(fmt.Sprintf("\t%s\n", strings.Join(traits, ", ")))
 				}
@@ -175,7 +163,6 @@ func (a *App) waypointsListContent() string {
 			content.WriteString(fmt.Sprintf("[blue]%s[-] %d[-]\n", waypointCount.Name, waypointCount.Count))
 		}
 
-		//content += fmt.Sprintf("[orange]%s[-] | [blue]%s[-] | [yellow]%d,%d[-]\n", waypoint.Symbol, waypoint.Type, waypoint.X, waypoint.Y)
 		return content.String()
 	}
 
@@ -185,6 +172,22 @@ func (a *App) waypointsListContent() string {
 
 	go state.Waypoints(ship.Nav.SystemSymbol)
 	return loadingContent(state.WaypointsDataStatus())
+}
+
+func (a *App) waypointDetailContent() string {
+	ship := a.GameState.ActiveShip()
+	if ship == nil {
+		return "[red]Error: no active ship![-]"
+	}
+
+	waypoint := a.GameState.ActiveWaypoint()
+	content := fmt.Sprintf("[yellow]Waypoint:[-] %s [blue]%s[-]\n", ship.Nav.SystemSymbol, waypoint.Type)
+	if len(waypoint.Traits) > 0 {
+		content += fmt.Sprintf("\t[blue]Traits:[-] %s\n", strings.Join(waypoint.AllTraits(), ", "))
+	}
+	content += fmt.Sprintf("\t[orange]Faction:[-] %s\n", waypoint.Faction.Symbol)
+
+	return content
 }
 
 func (a *App) statusBarContent() string {
