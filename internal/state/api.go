@@ -1,26 +1,45 @@
 package state
 
 import (
-	"math"
+	"context"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/timkelleher/spaceui/internal/api"
 	"github.com/timkelleher/spaceui/internal/events"
 )
 
+const (
+	DATA_AGENT             = "agent"
+	DATA_CONTRACTS         = "contracts"
+	DATA_SHIPS             = "ships"
+	DATA_WAYPOINTS         = "waypoints"
+	DATA_WAYPOINT_SHIPYARD = "shipyard"
+
+	DATA_SHIPS_LIST = "ships_list"
+)
+
 var (
+	mu  sync.Mutex
+	ctx context.Context
+
 	agent     api.Agent
 	contracts []api.Contract
 	ships     []api.Ship
-	systems   []api.System
-	waypoints []api.Waypoint
-	shipyard  api.Shipyard
+	//systems   []api.System
+	waypoints map[string][]api.Waypoint
+	shipyard  map[string]api.Shipyard
 )
 
 func Init() {
+	mu = sync.Mutex{}
+
+	ctx = context.Background()
 	loading = make(map[string]bool)
 	lastUpdated = make(map[string]time.Time)
+
+	go Poll()
 
 	go refreshAgentData()
 	go refreshContractsData()
@@ -30,61 +49,126 @@ func Init() {
 
 func refreshAgentData() {
 	for {
-		Agent(true)
-		time.Sleep(20 * time.Second)
+		lastUpdated[DATA_AGENT] = time.Time{}
+		time.Sleep(30 * time.Second)
 	}
 }
 
 func refreshContractsData() {
 	for {
-		Contracts(true)
-		time.Sleep(45 * time.Second)
+		lastUpdated[DATA_CONTRACTS] = time.Time{}
+		time.Sleep(120 * time.Second)
 	}
 }
 
 func refreshShipData() {
 	for {
-		Ships(true)
-		time.Sleep(30 * time.Second)
+		lastUpdated[DATA_SHIPS] = time.Time{}
+		time.Sleep(60 * time.Second)
 	}
 }
 
+/*
 func refreshSystemsData() {
 	for {
 		Systems(true)
 		time.Sleep(30000 * time.Second)
 	}
 }
+*/
+
+var refreshQueue []string
+
+func Poll() {
+	for {
+		currentlyLoading := false
+		for datatype, isLoading := range loading {
+			if isLoading && lastUpdated[datatype].IsZero() {
+				currentlyLoading = true
+			}
+		}
+
+		if len(refreshQueue) > 0 && !currentlyLoading {
+			refresh(refreshQueue[0])
+			refreshQueue = refreshQueue[1:]
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+func Queue(datatype string) {
+	for _, item := range refreshQueue {
+		if item == datatype {
+			return
+		}
+	}
+	refreshQueue = append(refreshQueue, datatype)
+}
+
+func refresh(datatype string) {
+	if !Loading(datatype) {
+		switch datatype {
+		case DATA_AGENT:
+			go Agent(true)
+		case DATA_CONTRACTS:
+			go Contracts(true)
+		case DATA_SHIPS:
+			go Ships(true)
+		case DATA_WAYPOINTS:
+			go Waypoints(true)
+		}
+	}
+}
+
+func dataLoad(datatype string, dataLoader func(context.Context)) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	loading[datatype] = true
+	dataLoader(ctx)
+	loading[datatype] = false
+
+	lastUpdated[datatype] = time.Now()
+}
 
 func Agent(force bool) api.Agent {
-	if _, ok := lastUpdated["agent"]; force || !ok {
-		obj, _ := api.GetAgent()
-		lastUpdated["agent"] = time.Now()
-		agent = obj.Agent
+	if updated, ok := lastUpdated[DATA_AGENT]; force || !ok || updated.IsZero() {
+		dataLoad(DATA_AGENT, func(context.Context) {
+			obj, _ := api.GetAgent()
+			agent = obj.Agent
+		})
 	}
 	return agent
 }
 
 func Contracts(force bool) []api.Contract {
-	if _, ok := lastUpdated["contracts"]; force || !ok {
-		obj, _ := api.GetContracts()
-		lastUpdated["contracts"] = time.Now()
-		contracts = obj.Contracts
+	if updated, ok := lastUpdated[DATA_CONTRACTS]; force || !ok || updated.IsZero() {
+		dataLoad(DATA_CONTRACTS, func(context.Context) {
+			obj, _ := api.GetContracts()
+			contracts = obj.Contracts
+		})
 	}
 	return contracts
 }
 
 func Ships(force bool) []api.Ship {
-	if _, ok := lastUpdated["ships"]; force || !ok {
-		loading["ships"] = true
-		obj, _ := api.GetShips()
-		lastUpdated["ships"] = time.Now()
-		ships = obj.Ships
-		loading["ships"] = false
+	if updated, ok := lastUpdated[DATA_SHIPS]; force || !ok || updated.IsZero() {
+		dataLoad(DATA_SHIPS, func(context.Context) {
+			obj, _ := api.GetShips()
+			ships = obj.Ships
+
+			ResetVisitingSystems()
+			for _, ship := range ships {
+				NewVisitingSystem(ship.Nav.SystemSymbol)
+			}
+			Queue(DATA_WAYPOINTS)
+		})
 	}
 	return ships
 }
 
+/*
 func Systems(force bool) []api.System {
 	if check := lastUpdated["systems"]; check.IsZero() {
 		systems = make([]api.System, 0)
@@ -114,69 +198,72 @@ func Systems(force bool) []api.System {
 	}
 	return systems
 }
+*/
 
-// Requires info about "other"/ui state.  Don't cache this?
-func Waypoints(system string) []api.Waypoint {
-	if check := lastUpdated["waypoints"]; check.IsZero() {
-		waypoints = make([]api.Waypoint, 0)
-		loading["waypoints"] = true
+// This doesn't go through queueDataLoad() as it is paginated...
+// TODO: make a paginated
+func Waypoints(force bool) map[string][]api.Waypoint {
+	if updated, ok := lastUpdated[DATA_WAYPOINTS]; force || !ok || updated.IsZero() {
+		loading[DATA_WAYPOINTS] = true
 
-		obj, res := api.GetWaypoints(system, 1)
-		lastUpdated["waypoints"] = time.Now()
-		waypoints = obj.Waypoints
+		waypoints = make(map[string][]api.Waypoint)
+		for _, visitingSystem := range visitingSystems {
+			obj, res := api.GetWaypoints(visitingSystem, 1)
+			for obj.Meta.Page*obj.Meta.Limit < obj.Meta.Total {
+				obj, res = api.GetWaypoints(visitingSystem, obj.Meta.Page+1)
+				if res.Error() {
+					globalError = "critical: failed to fetch waypoints"
+					return nil
+				}
+				if len(obj.Waypoints) == 0 {
+					break
+				}
 
-		for obj.Meta.Page*obj.Meta.Limit < obj.Meta.Total {
-			obj, res = api.GetWaypoints(system, obj.Meta.Page+1)
-			if res.Error() {
-				globalError = "critical: failed to fetch waypoints"
-				return nil
+				waypoints[visitingSystem] = append(waypoints[visitingSystem], obj.Waypoints...)
+				time.Sleep(time.Second)
 			}
-			if len(obj.Waypoints) == 0 {
-				break
-			}
-
-			waypoints = append(waypoints, obj.Waypoints...)
-			time.Sleep(500 * time.Millisecond)
+			lastUpdated[DATA_WAYPOINTS] = time.Now()
 		}
 
-		sort.Slice(waypoints, func(i, j int) bool {
-			return waypoints[i].Type < waypoints[j].Type
-		})
-		lastUpdated["waypoints"] = time.Now()
-		loading["waypoints"] = false
+		// Sort all waypoints
+		for _, visitingSystem := range visitingSystems {
+			sort.Slice(waypoints[visitingSystem], func(i, j int) bool {
+				return waypoints[visitingSystem][i].Type < waypoints[visitingSystem][j].Type
+			})
+		}
+
+		lastUpdated[DATA_WAYPOINTS] = time.Now()
+		loading[DATA_WAYPOINTS] = false
 		events.NewEvent(events.EVENT_LOAD_WAYPOINTS_COMPLETE)
 	}
 
 	return waypoints
 }
 
-func WaypointsDataStatus() int {
-	return len(waypoints)
+//func WaypointsDataStatus() int {
+//	return len(waypoints)
+//}
+
+func RefreshStatus(datatype string) int {
+	count := 0
+
+	switch datatype {
+	case DATA_WAYPOINTS:
+		count := 0
+		for _, waypoints := range waypoints {
+			count += len(waypoints)
+		}
+	}
+
+	return count
 }
 
-func Reset(id string) {
-	if _, ok := lastUpdated[id]; !ok {
-		return
-	}
-
-	lastUpdated[id] = time.Time{}
-	switch id {
-	case "":
-		waypoints = make([]api.Waypoint, 0)
-	}
-}
-
-func AvailableShips(system, waypoint string) api.Shipyard {
-	if check := lastUpdated["available_ships"]; check.IsZero() {
-		obj, _ := api.GetAvailableShips(system, waypoint)
-
-		sort.Slice(waypoints, func(i, j int) bool {
-			return waypoints[i].Type < waypoints[j].Type
-		})
-
-		shipyard = obj.Shipyard
-		lastUpdated["available_ships"] = time.Now()
-	}
-
-	return shipyard
+func AvailableShips(waypoint *api.Waypoint) api.Shipyard {
+	dataLoad(DATA_WAYPOINT_SHIPYARD+"_"+waypoint.Symbol, func(context.Context) {
+		loading[DATA_WAYPOINT_SHIPYARD] = true // Lock all shipyards for now?
+		obj, _ := api.GetShipyard(*waypoint)
+		shipyard[waypoint.Symbol] = obj.Shipyard
+		loading[DATA_WAYPOINT_SHIPYARD] = false
+	})
+	return shipyard[waypoint.Symbol]
 }

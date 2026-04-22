@@ -28,15 +28,12 @@ func (wsm WaypointShipyardMenu) Menu() *tview.List {
 		})
 
 	waypoint := state.SelectedWaypoint()
-	availableShips := state.AvailableShips(waypoint.SystemSymbol, waypoint.Symbol)
+	availableShips := state.AvailableShips(waypoint)
 	for _, ship := range availableShips.Ships {
 		menu.AddItem(fmt.Sprintf("Buy %s", ship.Name), fmt.Sprintf("%d", ship.PurchasePrice), 0, func() {
 			api.BuyShip(ship.Type, waypoint.Symbol)
 
-			// TODO: put this funcitonality into state pkg in a more explicit manner
-			// like "RefreshData()"
-			go state.Ships(true)
-
+			state.Queue(state.DATA_SHIPS)
 			state.SetActivePage(PAGE_DASHBOARD)
 			app.draw(true)
 
@@ -57,13 +54,17 @@ func (wsp WaypointShipyardPage) Menu() Menu {
 	return WaypointShipyardMenu{}
 }
 
+func (wsp WaypointShipyardPage) RequiredData() []string {
+	return []string{state.DATA_WAYPOINTS}
+}
+
 func (wsp WaypointShipyardPage) Content() string {
 	waypoint := state.SelectedWaypoint()
 	if waypoint == nil {
 		return "[red]Error: no active waypoint![-]"
 	}
 
-	shipyard := state.AvailableShips(waypoint.SystemSymbol, waypoint.Symbol)
+	shipyard := state.AvailableShips(waypoint)
 	content := fmt.Sprintf("Available ship types for [yellow]%s[-] waypoint: [orange]%d[-]\n", waypoint.Symbol, len(shipyard.ShipTypes))
 	for _, ship := range shipyard.ShipTypes {
 		content += fmt.Sprintf("\t- [blue]%s[-]\n", ship.Type)

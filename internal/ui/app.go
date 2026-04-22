@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,8 +102,9 @@ func NewApp() *App {
 }
 
 func (a *App) Run() {
-	//loc, _ := time.LoadLocation(os.Getenv("TIMEZONE"))
-	//state.SetLoc(loc)
+	// TODO: move this entirely to state?
+	loc, _ := time.LoadLocation(os.Getenv("TIMEZONE"))
+	state.SetLoc(loc)
 
 	// Redraw every second
 	go func() {
@@ -152,7 +155,17 @@ func (a *App) draw(forceMenuUpdate bool) {
 	}
 
 	a.grid.RemoveItem(a.uiPage)
-	a.uiPage.SetText(currentPage.Content())
+	if state.AnyLoading(currentPage.RequiredData()) {
+		a.uiPage.SetText(loadingContent(currentPage.RequiredData()))
+		for _, datatype := range currentPage.RequiredData() {
+			if !state.Fresh(datatype) {
+				state.Queue(datatype)
+			}
+		}
+	} else {
+		a.uiPage.SetText(currentPage.Content())
+	}
+
 	a.grid.AddItem(a.uiPage, 0, 1, 1, 1, 0, 0, false)
 
 	a.grid.RemoveItem(a.uiStatusBar)
@@ -162,6 +175,19 @@ func (a *App) draw(forceMenuUpdate bool) {
 	a.uiFooter.SetText(logger.Logs())
 	a.grid.RemoveItem(a.uiFooter)
 	a.grid.AddItem(a.uiFooter, 2, 0, 1, 2, 0, 0, false)
+}
+
+func loadingContent(datatypes []string) string {
+	count := 0
+	for _, datatype := range datatypes {
+		count += state.RefreshStatus(datatype)
+	}
+
+	objNames := strings.Join(datatypes, ", ")
+	if count == 0 {
+		return fmt.Sprintf("Loading %s...\n", objNames)
+	}
+	return fmt.Sprintf("Loading %d %s...\n", count, objNames)
 }
 
 const MENU_MAIN = "main"

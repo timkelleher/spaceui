@@ -20,6 +20,10 @@ func (dp DashboardPage) Menu() Menu {
 	return MainMenu{}
 }
 
+func (dp DashboardPage) RequiredData() []string {
+	return []string{state.DATA_AGENT, state.DATA_CONTRACTS, state.DATA_SHIPS}
+}
+
 func (dp DashboardPage) Content() string {
 	agent := state.Agent(false)
 

@@ -35,10 +35,7 @@ func (sdm ShipDetailMenu) Menu() *tview.List {
 			menu.AddItem("Orbit Ship", "", 'o', func() {
 				api.OrbitShip(selectedShip.Symbol)
 
-				// TODO: put this funcitonality into state pkg in a more explicit manner
-				// like "RefreshData()"
-				go state.Ships(true)
-
+				state.Queue(state.DATA_SHIPS)
 				state.SetActivePage(PAGE_SHIPS_LIST)
 				app.draw(true)
 			})
@@ -46,10 +43,7 @@ func (sdm ShipDetailMenu) Menu() *tview.List {
 			menu.AddItem("Dock Ship", "", 'd', func() {
 				api.DockShip(selectedShip.Symbol)
 
-				// TODO: put this funcitonality into state pkg in a more explicit manner
-				// like "RefreshData()"
-				go state.Ships(true)
-
+				state.Queue(state.DATA_SHIPS)
 				state.SetActivePage(PAGE_SHIPS_LIST)
 				app.draw(true)
 			})
@@ -57,13 +51,11 @@ func (sdm ShipDetailMenu) Menu() *tview.List {
 
 		menu.AddItem("Deactivate Ship", "", 'd', func() {
 			state.DeactivateShip()
-			//state.SetActivePage(PAGE_SHIP_DETAIL)
 			app.draw(true)
 		})
 	} else {
 		menu.AddItem("Activate Ship", "", 'a', func() {
 			state.SetActiveShip(selectedShip)
-			//state.SetActivePage(PAGE_SHIP_DETAIL)
 			app.draw(true)
 		})
 	}
@@ -80,6 +72,10 @@ func (sdp ShipDetailPage) ID() string {
 
 func (sdp ShipDetailPage) Menu() Menu {
 	return ShipDetailMenu{}
+}
+
+func (sdp ShipDetailPage) RequiredData() []string {
+	return []string{state.DATA_SHIPS}
 }
 
 // TODO: don't need this anymore since moving away from indexes?

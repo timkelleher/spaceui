@@ -54,9 +54,13 @@ func (slp ShipsListPage) Menu() Menu {
 	return ShipsListMenu{}
 }
 
+func (slp ShipsListPage) RequiredData() []string {
+	return []string{state.DATA_SHIPS}
+}
+
 func (slp ShipsListPage) Content() string {
-	if state.Loading("waypoints") {
-		return loadingContent(0, "ships")
+	if state.Loading(state.DATA_SHIPS) {
+		return loadingContent([]string{state.DATA_SHIPS})
 	}
 
 	ships := state.Ships(false)

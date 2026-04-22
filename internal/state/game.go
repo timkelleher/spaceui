@@ -7,10 +7,6 @@ import (
 	"github.com/timkelleher/spaceui/internal/api"
 )
 
-const (
-	DATA_SHIPS_LIST = "ships_list"
-)
-
 // /////////////////////////////////////
 // Loading & Last Updated
 // /////////////////////////////////////
@@ -32,12 +28,32 @@ func Loading(id string) bool {
 	return loading
 }
 
+func AnyLoading(ids []string) bool {
+	for _, id := range ids {
+		if Loading(id) {
+			return true
+		} else if lastUpdated[id].IsZero() {
+			Queue(id)
+			return true
+		}
+	}
+	return false
+}
+
 func LastUpdated(id string) time.Time {
 	lastUpdated, ok := lastUpdated[id]
 	if !ok {
 		return time.Time{}
 	}
 	return lastUpdated
+}
+
+func Fresh(id string) bool {
+	lastUpdated, ok := lastUpdated[id]
+	if !ok || lastUpdated.IsZero() {
+		return false
+	}
+	return true
 }
 
 func GlobalError() string {
@@ -103,6 +119,35 @@ func SetSelectedWaypoint(s *api.Waypoint) {
 	selectedWaypoint = s
 }
 
+var visitingSystems []string
+
+func NewVisitingSystem(symbol string) {
+	exists := false
+	for _, sys := range visitingSystems {
+		if sys == symbol {
+			exists = true
+		}
+	}
+
+	if !exists {
+		visitingSystems = append(visitingSystems, symbol)
+	}
+}
+
+func IsVisitingSystem(symbol string) bool {
+	exists := false
+	for _, sys := range visitingSystems {
+		if sys == symbol {
+			exists = true
+		}
+	}
+	return exists
+}
+
+func ResetVisitingSystems() {
+	visitingSystems = make([]string, 0)
+}
+
 // /////////////////////////////////////
 // Waypoint Filtering
 // /////////////////////////////////////
@@ -137,10 +182,10 @@ func SetWaypointFilterType(t string) {
 // /////////////////////////////////////
 func FilteredWaypoints() []api.Waypoint {
 	ship := ActiveShip()
-	waypoints := Waypoints(ship.Nav.SystemSymbol)
+	waypoints := Waypoints(false)
 
 	var filtered []api.Waypoint
-	for _, waypoint := range waypoints {
+	for _, waypoint := range waypoints[ship.Nav.SystemSymbol] {
 		if WaypointFilterType() == "type" && waypoint.Type == WaypointFilterName() {
 			filtered = append(filtered, waypoint)
 		} else if WaypointFilterType() == "trait" {
@@ -156,10 +201,10 @@ type WaypointCount struct {
 }
 
 func WaypointsByType(ship *api.Ship) []WaypointCount {
-	waypoints := Waypoints(ship.Nav.SystemSymbol)
+	waypoints := Waypoints(false)
 
 	waypointsByType := make(map[string]int)
-	for _, waypoint := range waypoints {
+	for _, waypoint := range waypoints[ship.Nav.SystemSymbol] {
 		waypointsByType[waypoint.Type]++
 	}
 
@@ -180,8 +225,8 @@ func findWaypoint(symbol string) *api.Waypoint {
 		return nil
 	}
 
-	waypoints := Waypoints(ship.Nav.SystemSymbol)
-	for _, waypoint := range waypoints {
+	waypoints := Waypoints(false)
+	for _, waypoint := range waypoints[ship.Nav.SystemSymbol] {
 		if waypoint.Symbol == symbol {
 			return &waypoint
 		}
@@ -190,10 +235,10 @@ func findWaypoint(symbol string) *api.Waypoint {
 }
 
 func WaypointsWithTrait(ship *api.Ship, filter string) []api.Waypoint {
-	waypoints := Waypoints(ship.Nav.SystemSymbol)
+	waypoints := Waypoints(false)
 
 	var filtered []api.Waypoint
-	for _, waypoint := range waypoints {
+	for _, waypoint := range waypoints[ship.Nav.SystemSymbol] {
 		for _, trait := range waypoint.Traits {
 			if trait.Name == filter {
 				filtered = append(filtered, waypoint)

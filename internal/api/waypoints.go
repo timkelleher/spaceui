@@ -80,7 +80,7 @@ func GetWaypoints(system string, page int) (*WaypointsResponse, ApiResult) {
 	return &obj, res
 }
 
-type WaypointAvailableShipsResponse struct {
+type WaypointShipyardResponse struct {
 	Shipyard `json:"data"`
 }
 
@@ -168,10 +168,10 @@ type AvailableShip struct {
 	Activity string `json:"activity"`
 }
 
-func GetAvailableShips(system, waypoint string) (*WaypointAvailableShipsResponse, ApiResult) {
-	endpoint := fmt.Sprintf(GET_WAYPOINT_AVAILABLE_SHIPS_ENDPOINT, system, waypoint)
+func GetShipyard(waypoint Waypoint) (*WaypointShipyardResponse, ApiResult) {
+	endpoint := fmt.Sprintf(GET_WAYPOINT_AVAILABLE_SHIPS_ENDPOINT, waypoint.SystemSymbol, waypoint.Symbol)
 
-	var obj WaypointAvailableShipsResponse
+	var obj WaypointShipyardResponse
 	var errResp ErrorResponse
 
 	resp, err := client.R().

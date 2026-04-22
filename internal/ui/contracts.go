@@ -21,6 +21,10 @@ func (cp ContractsPage) Menu() Menu {
 	return MainMenu{}
 }
 
+func (cp ContractsPage) RequiredData() []string {
+	return []string{state.DATA_CONTRACTS}
+}
+
 func (cp ContractsPage) Content() string {
 	contracts := state.Contracts(false)
 

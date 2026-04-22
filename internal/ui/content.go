@@ -1,9 +1,5 @@
 package ui
 
-import (
-	"fmt"
-)
-
 /*
 func (a *App) systemsContent() string {
 	systems := state.Systems(false)
@@ -31,11 +27,3 @@ func (a *App) systemsContent() string {
 	return content
 }
 */
-
-func loadingContent(num int, objName string) string {
-	if num == 0 {
-		return fmt.Sprintf("Loading %s...\n", objName)
-	}
-
-	return fmt.Sprintf("Loading %d %s...\n", num, objName)
-}

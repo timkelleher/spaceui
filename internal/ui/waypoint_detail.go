@@ -49,6 +49,10 @@ func (wdp WaypointDetailPage) Menu() Menu {
 	return WaypointDetailMenu{}
 }
 
+func (wdp WaypointDetailPage) RequiredData() []string {
+	return []string{state.DATA_WAYPOINTS}
+}
+
 func (wdp WaypointDetailPage) Content() string {
 	ship := state.ActiveShip()
 	if ship == nil {

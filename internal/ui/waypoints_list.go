@@ -39,7 +39,7 @@ func (wlm WaypointsListMenu) Menu() *tview.List {
 		return menu
 	}
 
-	if !state.Loading("waypoints") && !state.LastUpdated("waypoints").IsZero() {
+	if !state.Loading(state.DATA_WAYPOINTS) && state.Fresh(state.DATA_WAYPOINTS) {
 		waypoints := state.FilteredWaypoints()
 		if len(waypoints) > 0 {
 			menu.AddItem("Waypoints", "", 0, nil)
@@ -112,17 +112,21 @@ func (wlp WaypointsListPage) Menu() Menu {
 	return WaypointsListMenu{}
 }
 
+func (wlp WaypointsListPage) RequiredData() []string {
+	return []string{state.DATA_WAYPOINTS}
+}
+
 func (wlp WaypointsListPage) Content() string {
 	ship := state.ActiveShip()
 	if ship == nil {
 		return "[red]Error: no active ship![-]"
 	}
 
-	if !state.Loading("waypoints") && !state.LastUpdated("waypoints").IsZero() {
+	if !state.Loading(state.DATA_WAYPOINTS) && !state.LastUpdated(state.DATA_WAYPOINTS).IsZero() {
 		var content strings.Builder
-		waypoints := state.Waypoints(ship.Nav.SystemSymbol)
+		waypoints := state.Waypoints(false)
 
-		content.WriteString(fmt.Sprintf("[yellow]Number of waypoints in %s system:[-] %d\n", ship.Nav.SystemSymbol, len(waypoints)))
+		content.WriteString(fmt.Sprintf("[yellow]Number of waypoints in %s system:[-] %d\n", ship.Nav.SystemSymbol, len(waypoints[ship.Nav.SystemSymbol])))
 
 		if state.WaypointFilterName() != "" {
 			filtered := state.FilteredWaypoints()
@@ -149,13 +153,10 @@ func (wlp WaypointsListPage) Content() string {
 		return content.String()
 	}
 
-	if state.Loading("waypoints") {
-		return loadingContent(state.WaypointsDataStatus(), "waypoints")
+	if state.Loading(state.DATA_WAYPOINTS) {
+		return loadingContent([]string{state.DATA_WAYPOINTS})
 	}
 
-	// TODO: put this funcitonality into state pkg in a more explicit manner
-	// like "RefreshData()"
-	go state.Waypoints(ship.Nav.SystemSymbol)
-
-	return loadingContent(state.WaypointsDataStatus(), "waypoints")
+	state.Queue(state.DATA_WAYPOINTS)
+	return loadingContent([]string{state.DATA_WAYPOINTS})
 }
