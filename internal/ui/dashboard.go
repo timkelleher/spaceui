@@ -21,7 +21,7 @@ func (dp DashboardPage) Menu() Menu {
 }
 
 func (dp DashboardPage) RequiredData() []string {
-	return []string{state.DATA_AGENT, state.DATA_CONTRACTS, state.DATA_SHIPS}
+	return []string{state.DATA_AGENT, state.DATA_SHIPS}
 }
 
 func (dp DashboardPage) Content() string {

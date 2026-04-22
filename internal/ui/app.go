@@ -14,6 +14,9 @@ import (
 	"github.com/timkelleher/spaceui/internal/state"
 )
 
+// /////////////////////////////////////
+// App
+// /////////////////////////////////////
 var app *App
 
 type App struct {
@@ -128,14 +131,17 @@ func (a *App) setCurrentMenuID(id string) {
 	a.currentMenuID = id
 }
 
-func (a *App) draw(forceMenuUpdate bool) {
+func (a *App) draw(updateMenu bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	ev := events.GetEvents()
 	for _, event := range ev {
-		if event == events.EVENT_LOAD_WAYPOINTS_COMPLETE && a.getCurrentMenuID() == MENU_WAYPOINTS_LIST {
-			forceMenuUpdate = true
+		if updateMenu {
+			break
+		}
+		if a.shouldRedrawMenuFromEvent(event) {
+			updateMenu = true
 		}
 	}
 
@@ -145,8 +151,13 @@ func (a *App) draw(forceMenuUpdate bool) {
 		state.SetActivePage(currentPage.ID())
 	}
 
+	// Menu will be updated, so we should re-draw it
+	if currentPage.Menu().ID() != a.getCurrentMenuID() {
+		updateMenu = true
+	}
+
 	// Redraw the menu if forced or if the menu has changed since last draw
-	if forceMenuUpdate || currentPage.Menu().ID() != a.getCurrentMenuID() {
+	if updateMenu {
 		a.grid.RemoveItem(a.uiMenu)
 		a.uiMenu = currentPage.Menu().Menu()
 		a.setCurrentMenuID(currentPage.Menu().ID())
@@ -155,13 +166,13 @@ func (a *App) draw(forceMenuUpdate bool) {
 	}
 
 	a.grid.RemoveItem(a.uiPage)
-	if state.AnyLoading(currentPage.RequiredData()) {
-		a.uiPage.SetText(loadingContent(currentPage.RequiredData()))
+	if state.AreRefreshing(currentPage.RequiredData()) {
 		for _, datatype := range currentPage.RequiredData() {
 			if !state.Fresh(datatype) {
 				state.Queue(datatype)
 			}
 		}
+		a.uiPage.SetText(loadingContent(currentPage.RequiredData()))
 	} else {
 		a.uiPage.SetText(currentPage.Content())
 	}
@@ -177,6 +188,14 @@ func (a *App) draw(forceMenuUpdate bool) {
 	a.grid.AddItem(a.uiFooter, 2, 0, 1, 2, 0, 0, false)
 }
 
+func (a *App) shouldRedrawMenuFromEvent(event string) bool {
+	switch event {
+	case events.EVENT_LOAD_WAYPOINTS_COMPLETE:
+		return a.currentMenuID == MENU_WAYPOINTS_LIST || a.currentMenuID == MENU_SHIP_DETAIL
+	}
+	return false
+}
+
 func loadingContent(datatypes []string) string {
 	count := 0
 	for _, datatype := range datatypes {
@@ -185,11 +204,14 @@ func loadingContent(datatypes []string) string {
 
 	objNames := strings.Join(datatypes, ", ")
 	if count == 0 {
-		return fmt.Sprintf("Loading %s...\n", objNames)
+		return fmt.Sprintf("[grey]Loading %s...[-]\n", objNames)
 	}
-	return fmt.Sprintf("Loading %d %s...\n", count, objNames)
+	return fmt.Sprintf("[grey]Loading %d %s...[-]\n", count, objNames)
 }
 
+// /////////////////////////////////////
+// Main Menu
+// /////////////////////////////////////
 const MENU_MAIN = "main"
 
 type MainMenu struct {

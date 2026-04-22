@@ -49,22 +49,22 @@ func Init() {
 
 func refreshAgentData() {
 	for {
-		lastUpdated[DATA_AGENT] = time.Time{}
 		time.Sleep(30 * time.Second)
+		MarkStale(DATA_AGENT)
 	}
 }
 
 func refreshContractsData() {
 	for {
-		lastUpdated[DATA_CONTRACTS] = time.Time{}
 		time.Sleep(120 * time.Second)
+		MarkStale(DATA_CONTRACTS)
 	}
 }
 
 func refreshShipData() {
 	for {
-		lastUpdated[DATA_SHIPS] = time.Time{}
-		time.Sleep(60 * time.Second)
+		time.Sleep(20 * time.Second)
+		MarkStale(DATA_SHIPS)
 	}
 }
 
@@ -77,54 +77,7 @@ func refreshSystemsData() {
 }
 */
 
-var refreshQueue []string
-
-func Poll() {
-	for {
-		currentlyLoading := false
-		for datatype, isLoading := range loading {
-			if isLoading && lastUpdated[datatype].IsZero() {
-				currentlyLoading = true
-			}
-		}
-
-		if len(refreshQueue) > 0 && !currentlyLoading {
-			refresh(refreshQueue[0])
-			refreshQueue = refreshQueue[1:]
-		}
-
-		time.Sleep(500 * time.Millisecond)
-	}
-}
-
-func Queue(datatype string) {
-	for _, item := range refreshQueue {
-		if item == datatype {
-			return
-		}
-	}
-	refreshQueue = append(refreshQueue, datatype)
-}
-
-func refresh(datatype string) {
-	if !Loading(datatype) {
-		switch datatype {
-		case DATA_AGENT:
-			go Agent(true)
-		case DATA_CONTRACTS:
-			go Contracts(true)
-		case DATA_SHIPS:
-			go Ships(true)
-		case DATA_WAYPOINTS:
-			go Waypoints(true)
-		}
-	}
-}
-
 func dataLoad(datatype string, dataLoader func(context.Context)) {
-	mu.Lock()
-	defer mu.Unlock()
-
 	loading[datatype] = true
 	dataLoader(ctx)
 	loading[datatype] = false
@@ -133,7 +86,7 @@ func dataLoad(datatype string, dataLoader func(context.Context)) {
 }
 
 func Agent(force bool) api.Agent {
-	if updated, ok := lastUpdated[DATA_AGENT]; force || !ok || updated.IsZero() {
+	if updated, ok := lastUpdated[DATA_AGENT]; !ok || force || updated.IsZero() {
 		dataLoad(DATA_AGENT, func(context.Context) {
 			obj, _ := api.GetAgent()
 			agent = obj.Agent
@@ -143,7 +96,7 @@ func Agent(force bool) api.Agent {
 }
 
 func Contracts(force bool) []api.Contract {
-	if updated, ok := lastUpdated[DATA_CONTRACTS]; force || !ok || updated.IsZero() {
+	if updated, ok := lastUpdated[DATA_CONTRACTS]; !ok || force || updated.IsZero() {
 		dataLoad(DATA_CONTRACTS, func(context.Context) {
 			obj, _ := api.GetContracts()
 			contracts = obj.Contracts
@@ -153,7 +106,7 @@ func Contracts(force bool) []api.Contract {
 }
 
 func Ships(force bool) []api.Ship {
-	if updated, ok := lastUpdated[DATA_SHIPS]; force || !ok || updated.IsZero() {
+	if updated, ok := lastUpdated[DATA_SHIPS]; !ok || force || updated.IsZero() {
 		dataLoad(DATA_SHIPS, func(context.Context) {
 			obj, _ := api.GetShips()
 			ships = obj.Ships
@@ -162,7 +115,15 @@ func Ships(force bool) []api.Ship {
 			for _, ship := range ships {
 				NewVisitingSystem(ship.Nav.SystemSymbol)
 			}
-			Queue(DATA_WAYPOINTS)
+
+			if HasSelectedShip() {
+				for _, ship := range ships {
+					if selectedShip.Symbol == ship.Symbol {
+						selectedShip = &ship
+						break
+					}
+				}
+			}
 		})
 	}
 	return ships
@@ -203,12 +164,13 @@ func Systems(force bool) []api.System {
 // This doesn't go through queueDataLoad() as it is paginated...
 // TODO: make a paginated
 func Waypoints(force bool) map[string][]api.Waypoint {
-	if updated, ok := lastUpdated[DATA_WAYPOINTS]; force || !ok || updated.IsZero() {
+	if updated, ok := lastUpdated[DATA_WAYPOINTS]; !ok || force || updated.IsZero() {
 		loading[DATA_WAYPOINTS] = true
 
 		waypoints = make(map[string][]api.Waypoint)
 		for _, visitingSystem := range visitingSystems {
 			obj, res := api.GetWaypoints(visitingSystem, 1)
+			waypoints[visitingSystem] = append(waypoints[visitingSystem], obj.Waypoints...)
 			for obj.Meta.Page*obj.Meta.Limit < obj.Meta.Total {
 				obj, res = api.GetWaypoints(visitingSystem, obj.Meta.Page+1)
 				if res.Error() {
@@ -240,18 +202,14 @@ func Waypoints(force bool) map[string][]api.Waypoint {
 	return waypoints
 }
 
-//func WaypointsDataStatus() int {
-//	return len(waypoints)
-//}
-
 func RefreshStatus(datatype string) int {
 	count := 0
 
 	switch datatype {
 	case DATA_WAYPOINTS:
 		count := 0
-		for _, waypoints := range waypoints {
-			count += len(waypoints)
+		for _, systemWaypoints := range waypoints {
+			count += len(systemWaypoints)
 		}
 	}
 

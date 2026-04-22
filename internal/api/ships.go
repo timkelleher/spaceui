@@ -7,9 +7,12 @@ import (
 )
 
 const (
-	GET_SHIPS_ENDPOINT  = "/my/ships"
-	ORBIT_SHIP_ENDPOINT = "/my/ships/%s/orbit"
-	DOCK_SHIP_ENDPOINT  = "/my/ships/%s/dock"
+	GET_SHIPS_ENDPOINT     = "/my/ships"
+	ORBIT_SHIP_ENDPOINT    = "/my/ships/%s/orbit"
+	DOCK_SHIP_ENDPOINT     = "/my/ships/%s/dock"
+	NAVIGATE_SHIP_ENDPOINT = "/my/ships/%s/navigate"
+	REFUEL_SHIP_ENDPOINT   = "/my/ships/%s/refuel"
+	EXTRACT_SHIP_ENDPOINT  = "/my/ships/%s/extract"
 )
 
 type ShipsResponse struct {
@@ -96,27 +99,14 @@ type Ship struct {
 		} `json:"requirements"`
 		Quality int `json:"quality"`
 	} `json:"engine"`
-	Modules []struct {
-		Symbol       string `json:"symbol"`
-		Name         string `json:"name"`
-		Description  string `json:"description"`
-		Requirements struct {
-			Power int `json:"power"`
-			Crew  int `json:"crew"`
-			Slots int `json:"slots"`
-		} `json:"requirements"`
-		Capacity int `json:"capacity,omitempty"`
-	} `json:"modules"`
-	Mounts []struct {
-		Symbol       string `json:"symbol"`
-		Name         string `json:"name"`
-		Description  string `json:"description"`
-		Requirements struct {
-			Power int `json:"power"`
-			Crew  int `json:"crew"`
-		} `json:"requirements"`
-		Strength int      `json:"strength"`
-		Deposits []string `json:"deposits,omitempty"`
+	Modules []ShipModule `json:"modules"`
+	Mounts  []struct {
+		Symbol       string                 `json:"symbol"`
+		Name         string                 `json:"name"`
+		Description  string                 `json:"description"`
+		Requirements []ShipMountRequirement `json:"requirements"`
+		Strength     int                    `json:"strength"`
+		Deposits     []string               `json:"deposits,omitempty"`
 	} `json:"mounts"`
 	Cargo struct {
 		Capacity  int             `json:"capacity"`
@@ -138,8 +128,43 @@ type Ship struct {
 	} `json:"cooldown"`
 }
 
+func (s *Ship) CanMine() bool {
+	for _, mount := range s.Mounts {
+		if mount.Symbol == "MOUNT_MINING_LASER_I" {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Ship) OnCooldown() bool {
+	return s.Cooldown.RemainingSeconds > 0
+}
+
 type ShipInventory struct {
-	Amount int `json:"amount"`
+	Symbol      string `json:"symbol"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Units       int    `json:"units"`
+}
+
+type ShipModule struct {
+	Symbol       string                  `json:"symbol"`
+	Name         string                  `json:"name"`
+	Description  string                  `json:"description"`
+	Requirements []ShipModuleRequirement `json:"requirements"`
+	Capacity     int                     `json:"capacity,omitempty"`
+}
+
+type ShipModuleRequirement struct {
+	Power int `json:"power"`
+	Crew  int `json:"crew"`
+	Slots int `json:"slots"`
+}
+
+type ShipMountRequirement struct {
+	Power int `json:"power"`
+	Crew  int `json:"crew"`
 }
 
 type ShipMeta struct {
@@ -204,6 +229,58 @@ func OrbitShip(symbol string) ApiResult {
 
 func DockShip(symbol string) ApiResult {
 	endpoint := fmt.Sprintf(DOCK_SHIP_ENDPOINT, symbol)
+	var errResp ErrorResponse
+
+	resp, err := client.R().
+		SetHeader("Accept", "application/json").
+		SetAuthToken(apiKey).
+		SetError(&errResp).
+		Post(url + endpoint)
+
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, endpoint, res)
+	return res
+}
+
+func NavigateShip(symbol, waypointSymbol string) ApiResult {
+	payloadStruct := struct {
+		WaypointSymbol string `json:"waypointSymbol"`
+	}{
+		WaypointSymbol: waypointSymbol,
+	}
+
+	endpoint := fmt.Sprintf(NAVIGATE_SHIP_ENDPOINT, symbol)
+	var errResp ErrorResponse
+
+	resp, err := client.R().
+		SetHeader("Accept", "application/json").
+		SetAuthToken(apiKey).
+		SetError(&errResp).
+		SetBody(payloadStruct).
+		Post(url + endpoint)
+
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, endpoint, res)
+	return res
+}
+
+func RefuelShip(symbol string) ApiResult {
+	endpoint := fmt.Sprintf(REFUEL_SHIP_ENDPOINT, symbol)
+	var errResp ErrorResponse
+
+	resp, err := client.R().
+		SetHeader("Accept", "application/json").
+		SetAuthToken(apiKey).
+		SetError(&errResp).
+		Post(url + endpoint)
+
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, endpoint, res)
+	return res
+}
+
+func ExtractShip(symbol string) ApiResult {
+	endpoint := fmt.Sprintf(EXTRACT_SHIP_ENDPOINT, symbol)
 	var errResp ErrorResponse
 
 	resp, err := client.R().

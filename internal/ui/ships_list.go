@@ -59,7 +59,7 @@ func (slp ShipsListPage) RequiredData() []string {
 }
 
 func (slp ShipsListPage) Content() string {
-	if state.Loading(state.DATA_SHIPS) {
+	if state.IsRefreshing(state.DATA_SHIPS) {
 		return loadingContent([]string{state.DATA_SHIPS})
 	}
 
@@ -75,8 +75,9 @@ func (slp ShipsListPage) Content() string {
 
 	content += "----------\n"
 	for i, ship := range ships {
-		content += fmt.Sprintf("%d) [red]%s[-] [blue]%s[-] [gold]%s[-] %s\n",
-			i+1, ship.Symbol, ship.Registration.Role, ship.Nav.WaypointSymbol, ship.Nav.Status)
+		content += fmt.Sprintf("%d) [red]%s[-] [blue]%s[-] [gold]%s[-] %s [orange]%d/%d[-] fuel [green]%d/%d[-] cargo\n",
+			i+1, ship.Symbol, ship.Registration.Role, ship.Nav.WaypointSymbol, ship.Nav.Status,
+			ship.Fuel.Current, ship.Fuel.Capacity, ship.Cargo.Units, ship.Cargo.Capacity)
 	}
 	return content
 }

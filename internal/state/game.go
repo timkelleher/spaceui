@@ -2,59 +2,14 @@ package state
 
 import (
 	"sort"
-	"time"
 
 	"github.com/timkelleher/spaceui/internal/api"
 )
 
 // /////////////////////////////////////
-// Loading & Last Updated
+// Error Handling
 // /////////////////////////////////////
-var (
-	loading     map[string]bool
-	lastUpdated map[string]time.Time
-	globalError string
-)
-
-// Newly proposed system:
-// If currently loading, return true
-// If not currently loading, but data has been update before, return false
-// If not currently loading, but data has never been updated before, return true and trigger update
-func Loading(id string) bool {
-	loading, ok := loading[id]
-	if !ok {
-		return false
-	}
-	return loading
-}
-
-func AnyLoading(ids []string) bool {
-	for _, id := range ids {
-		if Loading(id) {
-			return true
-		} else if lastUpdated[id].IsZero() {
-			Queue(id)
-			return true
-		}
-	}
-	return false
-}
-
-func LastUpdated(id string) time.Time {
-	lastUpdated, ok := lastUpdated[id]
-	if !ok {
-		return time.Time{}
-	}
-	return lastUpdated
-}
-
-func Fresh(id string) bool {
-	lastUpdated, ok := lastUpdated[id]
-	if !ok || lastUpdated.IsZero() {
-		return false
-	}
-	return true
-}
+var globalError string
 
 func GlobalError() string {
 	return globalError
@@ -100,6 +55,14 @@ func SetActiveShip(s *api.Ship) {
 
 func DeactivateShip() {
 	activeShip = nil
+}
+
+func IsSelectedActiveShip() bool {
+	if !HasSelectedShip() || !HasActiveShip() {
+		return false
+	}
+
+	return SelectedShip().Symbol == ActiveShip().Symbol
 }
 
 // /////////////////////////////////////

@@ -2,13 +2,49 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/rivo/tview"
+	"github.com/timkelleher/spaceui/internal/api"
 	"github.com/timkelleher/spaceui/internal/state"
 )
 
 const (
+	MENU_CONTRACTS = "contracts"
 	PAGE_CONTRACTS = "contracts"
 )
+
+type ContractsMenu struct {
+}
+
+func (cm ContractsMenu) ID() string {
+	return MENU_CONTRACTS
+}
+
+func (cm ContractsMenu) Menu() *tview.List {
+	menu := tview.NewList().
+		AddItem("Back", "", 'b', func() {
+			state.SetActivePage(PAGE_DASHBOARD)
+			app.draw(true)
+		})
+
+	if state.HasActiveShip() {
+		menu.AddItem("Negotiate Contract", "", 'n', func() {
+			api.NegotiateContract(state.ActiveShip().Symbol)
+
+			go func() {
+				state.MarkStale(state.DATA_CONTRACTS)
+
+				time.Sleep(2 * time.Second)
+				state.Queue(state.DATA_CONTRACTS)
+			}()
+
+			app.draw(true)
+		})
+	}
+
+	return menu
+}
 
 type ContractsPage struct {
 }
@@ -18,7 +54,7 @@ func (cp ContractsPage) ID() string {
 }
 
 func (cp ContractsPage) Menu() Menu {
-	return MainMenu{}
+	return ContractsMenu{}
 }
 
 func (cp ContractsPage) RequiredData() []string {
@@ -50,7 +86,7 @@ func (cp ContractsPage) Content() string {
 		content += fmt.Sprintf("[green]Deadline:[-]\t %s\n", state.FormattedTime(contract.Terms.Deadline))
 		content += "----- Delivery Terms -----\n"
 		for _, deliver := range contract.Terms.Deliver {
-			content += fmt.Sprintf("[orange]%s[-]\t (%d/%d)\n", deliver.DestinationSymbol, deliver.UnitsFulfilled, deliver.UnitsRequired)
+			content += fmt.Sprintf("[orange]%s[-]\t (%d/%d) to [purple]%s[-]\n", deliver.TradeSymbol, deliver.UnitsFulfilled, deliver.UnitsRequired, deliver.DestinationSymbol)
 		}
 		if i != len(contracts)-1 {
 			content += "\n"

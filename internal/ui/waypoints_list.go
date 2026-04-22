@@ -39,7 +39,7 @@ func (wlm WaypointsListMenu) Menu() *tview.List {
 		return menu
 	}
 
-	if !state.Loading(state.DATA_WAYPOINTS) && state.Fresh(state.DATA_WAYPOINTS) {
+	if !state.IsRefreshing(state.DATA_WAYPOINTS) && state.Fresh(state.DATA_WAYPOINTS) {
 		waypoints := state.FilteredWaypoints()
 		if len(waypoints) > 0 {
 			menu.AddItem("Waypoints", "", 0, nil)
@@ -122,7 +122,7 @@ func (wlp WaypointsListPage) Content() string {
 		return "[red]Error: no active ship![-]"
 	}
 
-	if !state.Loading(state.DATA_WAYPOINTS) && !state.LastUpdated(state.DATA_WAYPOINTS).IsZero() {
+	if !state.IsRefreshing(state.DATA_WAYPOINTS) && !state.LastUpdated(state.DATA_WAYPOINTS).IsZero() {
 		var content strings.Builder
 		waypoints := state.Waypoints(false)
 
@@ -153,7 +153,7 @@ func (wlp WaypointsListPage) Content() string {
 		return content.String()
 	}
 
-	if state.Loading(state.DATA_WAYPOINTS) {
+	if state.IsRefreshing(state.DATA_WAYPOINTS) {
 		return loadingContent([]string{state.DATA_WAYPOINTS})
 	}
 

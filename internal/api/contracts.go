@@ -29,12 +29,7 @@ type Contract struct {
 			OnAccepted  int `json:"onAccepted"`
 			OnFulfilled int `json:"onFulfilled"`
 		} `json:"payment"`
-		Deliver []struct {
-			TradeSymbol       string `json:"tradeSymbol"`
-			DestinationSymbol string `json:"destinationSymbol"`
-			UnitsRequired     int    `json:"unitsRequired"`
-			UnitsFulfilled    int    `json:"unitsFulfilled"`
-		} `json:"deliver"`
+		Deliver []ContractDeliver `json:"deliver"`
 	} `json:"terms"`
 	Accepted         bool      `json:"accepted"`
 	Fulfilled        bool      `json:"fulfilled"`
@@ -50,6 +45,13 @@ func (c Contract) State() string {
 	} else {
 		return "Fulfilled"
 	}
+}
+
+type ContractDeliver struct {
+	TradeSymbol       string `json:"tradeSymbol"`
+	DestinationSymbol string `json:"destinationSymbol"`
+	UnitsRequired     int    `json:"unitsRequired"`
+	UnitsFulfilled    int    `json:"unitsFulfilled"`
 }
 
 type Terms struct {

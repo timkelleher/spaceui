@@ -3,8 +3,10 @@ package ui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/rivo/tview"
+	"github.com/timkelleher/spaceui/internal/api"
 	"github.com/timkelleher/spaceui/internal/state"
 )
 
@@ -27,7 +29,29 @@ func (wdm WaypointDetailMenu) Menu() *tview.List {
 			app.draw(true)
 		})
 
+	ship := state.ActiveShip()
 	waypoint := state.SelectedWaypoint()
+
+	// Navigate to waypoint
+	if ship.Nav.SystemSymbol == waypoint.SystemSymbol &&
+		ship.Nav.WaypointSymbol != waypoint.Symbol &&
+		ship.Nav.Status == "IN_ORBIT" {
+		menu.AddItem(fmt.Sprintf("Navigate to %s", waypoint.Symbol), ship.Symbol, 'n', func() {
+			api.NavigateShip(ship.Symbol, waypoint.Symbol)
+
+			// Delay data refresh
+			go func() {
+				state.MarkStale(state.DATA_SHIPS)
+
+				time.Sleep(2 * time.Second)
+				state.Queue(state.DATA_SHIPS)
+			}()
+
+			state.SetActivePage(PAGE_SHIPS_LIST)
+			app.draw(true)
+		})
+	}
+
 	if waypoint.IsShipyard() {
 		menu.AddItem("View Shipyard", "", 's', func() {
 			state.SetActivePage(PAGE_WAYPOINT_SHIPYARD)
@@ -60,9 +84,10 @@ func (wdp WaypointDetailPage) Content() string {
 	}
 
 	waypoint := state.SelectedWaypoint()
-	content := fmt.Sprintf("Waypoint: [yellow]%s[-] [blue]%s[-]\n", ship.Nav.SystemSymbol, waypoint.Type)
+	content := fmt.Sprintf("Waypoint: [yellow]%s[-]\n", waypoint.Symbol)
+	content += fmt.Sprintf("\t[blue]Type:[-] %s\n", waypoint.Type)
 	if len(waypoint.Traits) > 0 {
-		content += fmt.Sprintf("\t[blue]Traits:[-] %s\n", strings.Join(waypoint.AllTraits(), ", "))
+		content += fmt.Sprintf("\t[purple]Traits:[-] %s\n", strings.Join(waypoint.AllTraits(), ", "))
 	}
 	content += fmt.Sprintf("\t[orange]Faction:[-] %s\n", waypoint.Faction.Symbol)
 

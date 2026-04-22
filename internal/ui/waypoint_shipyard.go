@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/rivo/tview"
 	"github.com/timkelleher/spaceui/internal/api"
@@ -33,8 +34,15 @@ func (wsm WaypointShipyardMenu) Menu() *tview.List {
 		menu.AddItem(fmt.Sprintf("Buy %s", ship.Name), fmt.Sprintf("%d", ship.PurchasePrice), 0, func() {
 			api.BuyShip(ship.Type, waypoint.Symbol)
 
-			state.Queue(state.DATA_SHIPS)
-			state.SetActivePage(PAGE_DASHBOARD)
+			// Delay data refresh
+			go func() {
+				state.MarkStale(state.DATA_SHIPS)
+
+				time.Sleep(2 * time.Second)
+				state.Queue(state.DATA_SHIPS)
+			}()
+
+			state.SetActivePage(PAGE_SHIPS_LIST)
 			app.draw(true)
 
 		})
