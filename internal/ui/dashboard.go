@@ -36,14 +36,16 @@ func (dp DashboardPage) Content() string {
 		fmt.Sprintf("[blue]Headquarters:[-]\t%s\n", agent.Headquarters) +
 		fmt.Sprintf("[blue]Credits:[-]\t\t%d\n", agent.Credits)
 	content += "\n"
+
 	if state.HasActiveShip() {
 		ship := state.ActiveShip()
 		content += "----- Current Ship Information -----\n"
 		content += fmt.Sprintf("[orange]Active Ship:[-]\t %s\n", ship.Symbol)
 		content += fmt.Sprintf("[orange]Status:[-]\t\t\t %s\n", ship.Nav.Status)
-		content += fmt.Sprintf("[orange]Location:[-]\t %s\n", ship.Nav.WaypointSymbol)
+		content += fmt.Sprintf("[orange]Location:[-]\t\t %s\n", ship.Nav.WaypointSymbol)
 		content += "\n"
 	}
+
 	if state.HasSelectedWaypoint() {
 		waypoint := state.SelectedWaypoint()
 		content += "----- Current Waypoint Information -----\n"

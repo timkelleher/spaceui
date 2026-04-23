@@ -112,6 +112,24 @@ func ResetVisitingSystems() {
 }
 
 // /////////////////////////////////////
+// Waypoint
+// /////////////////////////////////////
+
+func GetWaypoint(systemSymbol, waypointSymbol string) *api.Waypoint {
+	waypoints, ok := waypoints[systemSymbol]
+	if !ok {
+		return nil
+	}
+
+	for _, waypoint := range waypoints {
+		if waypoint.Symbol == waypointSymbol {
+			return &waypoint
+		}
+	}
+	return nil
+}
+
+// /////////////////////////////////////
 // Waypoint Filtering
 // /////////////////////////////////////
 var (

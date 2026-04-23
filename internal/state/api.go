@@ -11,11 +11,12 @@ import (
 )
 
 const (
-	DATA_AGENT             = "agent"
-	DATA_CONTRACTS         = "contracts"
-	DATA_SHIPS             = "ships"
-	DATA_WAYPOINTS         = "waypoints"
-	DATA_WAYPOINT_SHIPYARD = "shipyard"
+	DATA_AGENT                = "agent"
+	DATA_CONTRACTS            = "contracts"
+	DATA_SHIPS                = "ships"
+	DATA_WAYPOINTS            = "waypoints"
+	DATA_WAYPOINT_MARKETPLACE = "marketplace"
+	DATA_WAYPOINT_SHIPYARD    = "shipyard"
 
 	DATA_SHIPS_LIST = "ships_list"
 )
@@ -28,8 +29,9 @@ var (
 	contracts []api.Contract
 	ships     []api.Ship
 	//systems   []api.System
-	waypoints map[string][]api.Waypoint
-	shipyard  map[string]api.Shipyard
+	waypoints   map[string][]api.Waypoint
+	marketplace map[string]api.Marketplace
+	shipyard    map[string]api.Shipyard
 )
 
 func Init() {
@@ -38,6 +40,9 @@ func Init() {
 	ctx = context.Background()
 	loading = make(map[string]bool)
 	lastUpdated = make(map[string]time.Time)
+
+	marketplace = make(map[string]api.Marketplace)
+	shipyard = make(map[string]api.Shipyard)
 
 	go Poll()
 
@@ -125,6 +130,7 @@ func Ships(force bool) []api.Ship {
 				}
 			}
 		})
+		events.NewEvent(events.EVENT_LOAD_SHIPS_COMPLETE)
 	}
 	return ships
 }
@@ -202,6 +208,34 @@ func Waypoints(force bool) map[string][]api.Waypoint {
 	return waypoints
 }
 
+func Marketplace(waypoint *api.Waypoint) api.Marketplace {
+	datatype := DATA_WAYPOINT_MARKETPLACE + "_" + waypoint.Symbol
+
+	if updated, ok := lastUpdated[datatype]; !ok || updated.IsZero() {
+		dataLoad(datatype, func(context.Context) {
+			loading[DATA_WAYPOINT_MARKETPLACE] = true // Lock all marketplaces for now?
+			obj, _ := api.GetMarketplace(*waypoint)
+			marketplace[waypoint.Symbol] = obj.Marketplace
+			loading[DATA_WAYPOINT_MARKETPLACE] = false
+		})
+	}
+	return marketplace[waypoint.Symbol]
+}
+
+func AvailableShips(waypoint *api.Waypoint) api.Shipyard {
+	datatype := DATA_WAYPOINT_SHIPYARD + "_" + waypoint.Symbol
+
+	if updated, ok := lastUpdated[datatype]; !ok || updated.IsZero() {
+		dataLoad(datatype, func(context.Context) {
+			loading[DATA_WAYPOINT_SHIPYARD] = true // Lock all shipyards for now?
+			obj, _ := api.GetShipyard(*waypoint)
+			shipyard[waypoint.Symbol] = obj.Shipyard
+			loading[DATA_WAYPOINT_SHIPYARD] = false
+		})
+	}
+	return shipyard[waypoint.Symbol]
+}
+
 func RefreshStatus(datatype string) int {
 	count := 0
 
@@ -214,14 +248,4 @@ func RefreshStatus(datatype string) int {
 	}
 
 	return count
-}
-
-func AvailableShips(waypoint *api.Waypoint) api.Shipyard {
-	dataLoad(DATA_WAYPOINT_SHIPYARD+"_"+waypoint.Symbol, func(context.Context) {
-		loading[DATA_WAYPOINT_SHIPYARD] = true // Lock all shipyards for now?
-		obj, _ := api.GetShipyard(*waypoint)
-		shipyard[waypoint.Symbol] = obj.Shipyard
-		loading[DATA_WAYPOINT_SHIPYARD] = false
-	})
-	return shipyard[waypoint.Symbol]
 }

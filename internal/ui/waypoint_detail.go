@@ -32,6 +32,16 @@ func (wdm WaypointDetailMenu) Menu() *tview.List {
 	ship := state.ActiveShip()
 	waypoint := state.SelectedWaypoint()
 
+	if state.HasActiveShip() {
+		menu.AddItem("Go to ship", "", 'g', func() {
+			state.SetSelectedShip(ship)
+			state.SetActivePage(PAGE_SHIP_DETAIL)
+			app.draw(true)
+		})
+	}
+
+	// TODO cleanup this if statement condition
+
 	// Navigate to waypoint
 	if ship.Nav.SystemSymbol == waypoint.SystemSymbol &&
 		ship.Nav.WaypointSymbol != waypoint.Symbol &&
@@ -48,6 +58,13 @@ func (wdm WaypointDetailMenu) Menu() *tview.List {
 			}()
 
 			state.SetActivePage(PAGE_SHIPS_LIST)
+			app.draw(true)
+		})
+	}
+
+	if waypoint.IsMarketplace() {
+		menu.AddItem("View Marketplace", "", 'm', func() {
+			state.SetActivePage(PAGE_WAYPOINT_MARKETPLACE)
 			app.draw(true)
 		})
 	}
@@ -83,6 +100,7 @@ func (wdp WaypointDetailPage) Content() string {
 		return "[red]Error: no active ship![-]"
 	}
 
+	activeShip := state.ActiveShip()
 	waypoint := state.SelectedWaypoint()
 	content := fmt.Sprintf("Waypoint: [yellow]%s[-]\n", waypoint.Symbol)
 	content += fmt.Sprintf("\t[blue]Type:[-] %s\n", waypoint.Type)
@@ -96,7 +114,11 @@ func (wdp WaypointDetailPage) Content() string {
 	content += "\n" + fmt.Sprintf("Ship(s) at waypoint [yellow]%s[-]:\n", waypoint.Symbol)
 	for _, ship := range ships {
 		if ship.Nav.WaypointSymbol == waypoint.Symbol {
-			content += fmt.Sprintf("\t[orange]%s[-]\n", ship.Symbol)
+			isActive := ""
+			if activeShip.Symbol == ship.Symbol {
+				isActive = "[red](active)[-]"
+			}
+			content += fmt.Sprintf("\t[orange]%s[-] %s", ship.Symbol, isActive)
 		}
 	}
 	if len(ships) == 0 {

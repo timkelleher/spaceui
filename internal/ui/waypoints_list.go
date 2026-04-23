@@ -73,7 +73,7 @@ func (wlm WaypointsListMenu) Menu() *tview.List {
 		//}
 
 		// By Trait
-		desiredTraits := []string{"Shipyard"}
+		desiredTraits := []string{"Marketplace", "Shipyard"}
 		for _, desired := range desiredTraits {
 			waypointsByType := state.WaypointsWithTrait(ship, desired)
 			menu.AddItem(fmt.Sprintf("Trait: %s", desired), fmt.Sprintf("%d Matches", len(waypointsByType)), 0, func() {

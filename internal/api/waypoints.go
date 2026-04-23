@@ -8,9 +8,14 @@ import (
 )
 
 const (
-	GET_WAYPOINTS_ENDPOINT                = "/systems/%s/waypoints"
-	GET_WAYPOINT_AVAILABLE_SHIPS_ENDPOINT = "/systems/%s/waypoints/%s/shipyard"
+	GET_WAYPOINTS_ENDPOINT         = "/systems/%s/waypoints"
+	GET_WAYPOINT_MARKET_ENDPOINTS  = "/systems/%s/waypoints/%s/market"
+	GET_WAYPOINT_SHIPYARD_ENDPOINT = "/systems/%s/waypoints/%s/shipyard"
 )
+
+// /////////////////////////////////////
+// Waypoints
+// /////////////////////////////////////
 
 type WaypointsResponse struct {
 	Waypoints []Waypoint       `json:"data"`
@@ -39,9 +44,17 @@ type Waypoint struct {
 	} `json:"chart"`
 }
 
+func (w Waypoint) IsMarketplace() bool {
+	return w.hasTrait("Marketplace")
+}
+
 func (w Waypoint) IsShipyard() bool {
+	return w.hasTrait("Shipyard")
+}
+
+func (w Waypoint) hasTrait(desired string) bool {
 	for _, trait := range w.Traits {
-		if trait.Name == "Shipyard" {
+		if trait.Name == desired {
 			return true
 		}
 	}
@@ -79,6 +92,71 @@ func GetWaypoints(system string, page int) (*WaypointsResponse, ApiResult) {
 	logResponse(http.MethodGet, endpoint+fmt.Sprintf(" (%d)", page), res)
 	return &obj, res
 }
+
+// /////////////////////////////////////
+// Waypoint Market
+// /////////////////////////////////////
+
+type WaypoiontMarketResponse struct {
+	Marketplace `json:"data"`
+}
+
+type Marketplace struct {
+	Symbol       string                   `json:"symbol"`
+	Exports      []interface{}            `json:"exports"`
+	Imports      []interface{}            `json:"imports"`
+	Exchange     []MarketplaceExchange    `json:"exchange"`
+	Transactions []MarketplaceTransaction `json:"transactions"`
+	TradeGoods   []MarketplaceTradeGood   `json:"tradeGoods"`
+}
+
+type MarketplaceExchange struct {
+	Symbol      string `json:"symbol"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type MarketplaceTransaction struct {
+	WaypointSymbol string    `json:"waypointSymbol"`
+	ShipSymbol     string    `json:"shipSymbol"`
+	TradeSymbol    string    `json:"tradeSymbol"`
+	Type           string    `json:"type"`
+	Units          int       `json:"units"`
+	PricePerUnit   int       `json:"pricePerUnit"`
+	TotalPrice     int       `json:"totalPrice"`
+	Timestamp      time.Time `json:"timestamp"`
+}
+
+type MarketplaceTradeGood struct {
+	Symbol        string `json:"symbol"`
+	Type          string `json:"type"`
+	TradeVolume   int    `json:"tradeVolume"`
+	Supply        string `json:"supply"`
+	PurchasePrice int    `json:"purchasePrice"`
+	SellPrice     int    `json:"sellPrice"`
+}
+
+func GetMarketplace(waypoint Waypoint) (*WaypoiontMarketResponse, ApiResult) {
+	endpoint := fmt.Sprintf(GET_WAYPOINT_MARKET_ENDPOINTS, waypoint.SystemSymbol, waypoint.Symbol)
+
+	var obj WaypoiontMarketResponse
+	var errResp ErrorResponse
+
+	resp, err := client.R().
+		SetHeader("Accept", "application/json").
+		SetAuthToken(apiKey).
+		SetResult(&obj).
+		SetError(&errResp).
+		Get(url + endpoint)
+
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodGet, endpoint, res)
+	return &obj, res
+}
+
+// /////////////////////////////////////
+// Waypoint Shipyard
+// /////////////////////////////////////
 
 type WaypointShipyardResponse struct {
 	Shipyard `json:"data"`
@@ -169,7 +247,7 @@ type AvailableShip struct {
 }
 
 func GetShipyard(waypoint Waypoint) (*WaypointShipyardResponse, ApiResult) {
-	endpoint := fmt.Sprintf(GET_WAYPOINT_AVAILABLE_SHIPS_ENDPOINT, waypoint.SystemSymbol, waypoint.Symbol)
+	endpoint := fmt.Sprintf(GET_WAYPOINT_SHIPYARD_ENDPOINT, waypoint.SystemSymbol, waypoint.Symbol)
 
 	var obj WaypointShipyardResponse
 	var errResp ErrorResponse

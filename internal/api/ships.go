@@ -7,12 +7,14 @@ import (
 )
 
 const (
-	GET_SHIPS_ENDPOINT     = "/my/ships"
-	ORBIT_SHIP_ENDPOINT    = "/my/ships/%s/orbit"
-	DOCK_SHIP_ENDPOINT     = "/my/ships/%s/dock"
-	NAVIGATE_SHIP_ENDPOINT = "/my/ships/%s/navigate"
-	REFUEL_SHIP_ENDPOINT   = "/my/ships/%s/refuel"
-	EXTRACT_SHIP_ENDPOINT  = "/my/ships/%s/extract"
+	GET_SHIPS_ENDPOINT      = "/my/ships"
+	ORBIT_SHIP_ENDPOINT     = "/my/ships/%s/orbit"
+	DOCK_SHIP_ENDPOINT      = "/my/ships/%s/dock"
+	NAVIGATE_SHIP_ENDPOINT  = "/my/ships/%s/navigate"
+	REFUEL_SHIP_ENDPOINT    = "/my/ships/%s/refuel"
+	EXTRACT_SHIP_ENDPOINT   = "/my/ships/%s/extract"
+	SELL_CARGO_ENDPOINT     = "/my/ships/%s/sell"
+	JETTISON_CARGO_ENDPOINT = "/my/ships/%s/jettison"
 )
 
 type ShipsResponse struct {
@@ -287,6 +289,54 @@ func ExtractShip(symbol string) ApiResult {
 		SetHeader("Accept", "application/json").
 		SetAuthToken(apiKey).
 		SetError(&errResp).
+		Post(url + endpoint)
+
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, endpoint, res)
+	return res
+}
+
+func SellCargo(shipSymbol, cargoSymbol string, cargoUnits int) ApiResult {
+	payloadStruct := struct {
+		Symbol string `json:"symbol"`
+		Units  int    `json:"units"`
+	}{
+		Symbol: cargoSymbol,
+		Units:  cargoUnits,
+	}
+
+	endpoint := fmt.Sprintf(SELL_CARGO_ENDPOINT, shipSymbol)
+	var errResp ErrorResponse
+
+	resp, err := client.R().
+		SetHeader("Accept", "application/json").
+		SetAuthToken(apiKey).
+		SetError(&errResp).
+		SetBody(payloadStruct).
+		Post(url + endpoint)
+
+	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}
+	logResponse(http.MethodPost, endpoint, res)
+	return res
+}
+
+func JettisonCargo(shipSymbol, cargoSymbol string, cargoUnits int) ApiResult {
+	payloadStruct := struct {
+		Symbol string `json:"symbol"`
+		Units  int    `json:"units"`
+	}{
+		Symbol: cargoSymbol,
+		Units:  cargoUnits,
+	}
+
+	endpoint := fmt.Sprintf(JETTISON_CARGO_ENDPOINT, shipSymbol)
+	var errResp ErrorResponse
+
+	resp, err := client.R().
+		SetHeader("Accept", "application/json").
+		SetAuthToken(apiKey).
+		SetError(&errResp).
+		SetBody(payloadStruct).
 		Post(url + endpoint)
 
 	res := ApiResult{Resp: resp, ErrResp: errResp, Err: err}

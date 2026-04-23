@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	EVENT_LOAD_SHIPS_COMPLETE     = "load_ships_complete"
 	EVENT_LOAD_WAYPOINTS_COMPLETE = "load_waypoints_complete"
 )
 

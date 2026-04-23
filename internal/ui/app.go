@@ -47,6 +47,7 @@ func (a *App) registerPages() {
 
 	a.registerPage(WaypointsListPage{}, false)
 	a.registerPage(WaypointDetailPage{}, false)
+	a.registerPage(WaypointMarketplacePage{}, false)
 	a.registerPage(WaypointShipyardPage{}, false)
 }
 
@@ -190,6 +191,8 @@ func (a *App) draw(updateMenu bool) {
 
 func (a *App) shouldRedrawMenuFromEvent(event string) bool {
 	switch event {
+	case events.EVENT_LOAD_SHIPS_COMPLETE:
+		return a.currentMenuID == MENU_SHIPS_LIST || a.currentMenuID == MENU_SHIP_DETAIL
 	case events.EVENT_LOAD_WAYPOINTS_COMPLETE:
 		return a.currentMenuID == MENU_WAYPOINTS_LIST || a.currentMenuID == MENU_SHIP_DETAIL
 	}

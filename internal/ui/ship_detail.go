@@ -98,6 +98,19 @@ func (sdm ShipDetailMenu) Menu() *tview.List {
 			}
 		}
 
+		if state.HasActiveShip() && selectedShip.Symbol == state.ActiveShip().Symbol {
+			shipWaypoint := state.GetWaypoint(selectedShip.Nav.SystemSymbol, selectedShip.Nav.WaypointSymbol)
+			if shipWaypoint != nil {
+				menu.AddItem("Go to waypoint", "", 'g', func() {
+					if !state.AnyRefreshing() {
+						state.SetActivePage(PAGE_WAYPOINT_DETAIL)
+						state.SetSelectedWaypoint(shipWaypoint)
+						app.draw(true)
+					}
+				})
+			}
+		}
+
 		if !state.AnyRefreshing() {
 			menu.AddItem("Deactivate Ship", "", 'd', func() {
 				if !state.AnyRefreshing() {
@@ -116,6 +129,23 @@ func (sdm ShipDetailMenu) Menu() *tview.List {
 				state.SetActivePage(PAGE_SHIPS_LIST)
 				app.draw(true)
 			}
+		})
+	}
+
+	for _, item := range selectedShip.Cargo.Inventory {
+		menu.AddItem(fmt.Sprintf("Jettison %s", item.Name), fmt.Sprintf("%d units", item.Units), 0, func() {
+			api.JettisonCargo(selectedShip.Symbol, item.Symbol, item.Units)
+
+			// Delay data refresh
+			go func() {
+				state.MarkStale(state.DATA_SHIPS)
+
+				time.Sleep(2 * time.Second)
+				state.Queue(state.DATA_SHIPS)
+			}()
+
+			app.draw(true)
+
 		})
 	}
 
